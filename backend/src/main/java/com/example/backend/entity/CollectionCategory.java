@@ -10,19 +10,19 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 收藏记录实体类。
+ * 用户收藏分类实体类。
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("collection_record")
-public class CollectionRecord {
+@TableName("collection_category")
+public class CollectionCategory {
 
 	/**
-	 * 记录ID。
+	 * 收藏分类ID。
 	 */
-	@TableId(value = "collection_id", type = IdType.AUTO)
-	private Long collectionId;
+	@TableId(value = "collection_category_id", type = IdType.AUTO)
+	private Long collectionCategoryId;
 
 	/**
 	 * 用户ID。
@@ -30,19 +30,24 @@ public class CollectionRecord {
 	private Long userId;
 
 	/**
-	 * 图书ID。
+	 * 分类名称。
 	 */
-	private Long bookId;
+	private String categoryName;
 
 	/**
-	 * 收藏分类ID。
+	 * 排序。
 	 */
-	private Long collectionCategoryId;
+	private Integer sortOrder;
 
 	/**
-	 * 收藏日期。
+	 * 是否默认分类：0否，1是。
 	 */
-	private LocalDateTime collectionDate;
+	private Integer isDefault;
+
+	/**
+	 * 状态：0禁用，1启用。
+	 */
+	private Integer status;
 
 	/**
 	 * 创建时间。

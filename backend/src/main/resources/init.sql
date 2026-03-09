@@ -97,17 +97,36 @@ CREATE TABLE IF NOT EXISTS `reservation_record` (
   CONSTRAINT `fk_reservation_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预约记录表';
 
+CREATE TABLE IF NOT EXISTS `collection_category` (
+  `collection_category_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '收藏分类ID',
+  `user_id` BIGINT NOT NULL COMMENT '用户ID',
+  `category_name` VARCHAR(50) NOT NULL COMMENT '分类名称',
+  `sort_order` INT DEFAULT 0 COMMENT '排序',
+  `is_default` TINYINT DEFAULT 0 COMMENT '是否默认分类：0否，1是',
+  `status` TINYINT DEFAULT 1 COMMENT '状态：0禁用，1启用',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`collection_category_id`),
+  UNIQUE KEY `uk_collection_category_user_name` (`user_id`, `category_name`),
+  UNIQUE KEY `uk_collection_category_id_user_id` (`collection_category_id`, `user_id`),
+  CONSTRAINT `fk_collection_category_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户收藏分类表';
+
 CREATE TABLE IF NOT EXISTS `collection_record` (
   `collection_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
   `book_id` BIGINT NOT NULL COMMENT '图书ID',
+  `collection_category_id` BIGINT DEFAULT NULL COMMENT '收藏分类ID',
   `collection_date` DATETIME NOT NULL COMMENT '收藏日期',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`collection_id`),
-  KEY `idx_collection_record_user_id` (`user_id`),
+  UNIQUE KEY `uk_collection_record_user_book` (`user_id`, `book_id`),
   KEY `idx_collection_record_book_id` (`book_id`),
+  KEY `idx_collection_record_category_user_id` (`collection_category_id`, `user_id`),
   CONSTRAINT `fk_collection_record_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`),
-  CONSTRAINT `fk_collection_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
+  CONSTRAINT `fk_collection_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`),
+  CONSTRAINT `fk_collection_record_category_user_id` FOREIGN KEY (`collection_category_id`, `user_id`) REFERENCES `collection_category` (`collection_category_id`, `user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='收藏记录表';
 
 CREATE TABLE IF NOT EXISTS `user_preference` (
