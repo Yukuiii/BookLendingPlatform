@@ -7,6 +7,7 @@ import com.example.backend.entity.Book;
 import com.example.backend.mapper.BookMapper;
 import com.example.backend.service.BookService;
 import com.example.backend.vo.PageResult;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -14,6 +15,7 @@ import org.springframework.util.StringUtils;
  * 图书服务实现类。
  */
 @Service
+@RequiredArgsConstructor
 public class BookServiceImpl implements BookService {
 
 	/**
@@ -32,10 +34,6 @@ public class BookServiceImpl implements BookService {
 	private static final long MAX_SIZE = 50L;
 
 	private final BookMapper bookMapper;
-
-	public BookServiceImpl(BookMapper bookMapper) {
-		this.bookMapper = bookMapper;
-	}
 
 	/**
 	 * 分页查询图书信息。
