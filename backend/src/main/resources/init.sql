@@ -124,3 +124,36 @@ CREATE TABLE IF NOT EXISTS `user_preference` (
   UNIQUE KEY `uk_user_preference_user_id` (`user_id`),
   CONSTRAINT `fk_user_preference_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户偏好表';
+
+CREATE TABLE IF NOT EXISTS `book_location` (
+  `location_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '位置ID',
+  `book_id` BIGINT NOT NULL COMMENT '图书ID',
+  `floor` INT NOT NULL COMMENT '楼层',
+  `area` VARCHAR(20) NOT NULL COMMENT '区域',
+  `shelf_no` VARCHAR(20) NOT NULL COMMENT '书架号',
+  `layer` INT NOT NULL COMMENT '层数',
+  `rfid_code` VARCHAR(50) DEFAULT NULL COMMENT 'RFID标签码',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`location_id`),
+  UNIQUE KEY `uk_book_location_rfid_code` (`rfid_code`),
+  KEY `idx_book_location_book_id` (`book_id`),
+  CONSTRAINT `fk_book_location_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书位置表';
+
+CREATE TABLE IF NOT EXISTS `comment` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '评论ID',
+  `user_id` BIGINT NOT NULL COMMENT '发表评论的用户ID',
+  `book_id` BIGINT NOT NULL COMMENT '被评论的图书ID',
+  `content` TEXT NOT NULL COMMENT '评论正文',
+  `rating` TINYINT NOT NULL COMMENT '评分，1-5分',
+  `like_count` INT DEFAULT 0 COMMENT '点赞数量',
+  `status` TINYINT DEFAULT 1 COMMENT '状态：0隐藏，1显示，2审核中',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_comment_user_id` (`user_id`),
+  KEY `idx_comment_book_id` (`book_id`),
+  CONSTRAINT `fk_comment_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`),
+  CONSTRAINT `fk_comment_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';
