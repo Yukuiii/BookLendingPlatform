@@ -5,8 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.BookPageQueryDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
+import com.example.backend.entity.BookLocation;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
+import com.example.backend.mapper.BookLocationMapper;
 import com.example.backend.mapper.BookMapper;
 import com.example.backend.service.BookService;
 import com.example.backend.vo.BookDetailVO;
@@ -46,6 +48,7 @@ public class BookServiceImpl implements BookService {
 
 	private final BookMapper bookMapper;
 	private final BookCategoryMapper bookCategoryMapper;
+	private final BookLocationMapper bookLocationMapper;
 
 	/**
 	 * 分页查询图书信息。
@@ -82,8 +85,13 @@ public class BookServiceImpl implements BookService {
 
 		// 批量查询分类名称，避免在组装列表时产生 N+1 查询。
 		Map<Long, String> categoryNameMap = resolveCategoryNameMap(books);
+		Map<Long, BookLocation> locationMap = resolveLatestLocationMap(books);
 		List<BookPageVO> records = books.stream()
-			.map((book) -> buildBookPageVO(book, categoryNameMap.get(book.getCategoryId())))
+			.map((book) -> buildBookPageVO(
+				book,
+				categoryNameMap.get(book.getCategoryId()),
+				locationMap.get(book.getBookId())
+			))
 			.toList();
 		return new PageResult<>(
 			records,
@@ -120,7 +128,45 @@ public class BookServiceImpl implements BookService {
 				BookCategory::getCategoryId,
 				BookCategory::getCategoryName,
 				(existing, ignored) -> existing
-			));
+				));
+	}
+
+	/**
+	 * 批量查询图书最新位置信息映射。
+	 *
+	 * @param books 图书列表
+	 * @return 图书ID到位置信息的映射
+	 */
+	private Map<Long, BookLocation> resolveLatestLocationMap(List<Book> books) {
+		if (books == null || books.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Long> bookIds = books.stream()
+			.map(Book::getBookId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (bookIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<BookLocation> locations = bookLocationMapper.selectList(new LambdaQueryWrapper<BookLocation>()
+			.in(BookLocation::getBookId, bookIds)
+			.orderByDesc(BookLocation::getUpdateTime)
+			.orderByDesc(BookLocation::getLocationId));
+		if (locations == null || locations.isEmpty()) {
+			return Map.of();
+		}
+
+		Map<Long, BookLocation> result = new java.util.HashMap<>();
+		for (BookLocation location : locations) {
+			if (location == null || location.getBookId() == null) {
+				continue;
+			}
+			result.putIfAbsent(location.getBookId(), location);
+		}
+		return result;
 	}
 
 	/**
@@ -128,14 +174,21 @@ public class BookServiceImpl implements BookService {
 	 *
 	 * @param book 图书实体
 	 * @param categoryName 分类名称
+	 * @param location 位置信息
 	 * @return 图书分页返回对象
 	 */
-	private BookPageVO buildBookPageVO(Book book, String categoryName) {
+	private BookPageVO buildBookPageVO(Book book, String categoryName, BookLocation location) {
 		BookPageVO bookPageVO = new BookPageVO();
 		if (book != null) {
 			BeanUtils.copyProperties(book, bookPageVO);
 		}
 		bookPageVO.setCategoryName(categoryName);
+		if (location != null) {
+			bookPageVO.setFloor(location.getFloor());
+			bookPageVO.setArea(location.getArea());
+			bookPageVO.setShelfNo(location.getShelfNo());
+			bookPageVO.setLayer(location.getLayer());
+		}
 		return bookPageVO;
 	}
 
@@ -157,7 +210,8 @@ public class BookServiceImpl implements BookService {
 		}
 
 		String categoryName = resolveCategoryName(book.getCategoryId());
-		return buildBookDetailVO(book, categoryName);
+		BookLocation latestLocation = resolveLatestLocation(bookId);
+		return buildBookDetailVO(book, categoryName, latestLocation);
 	}
 
 	/**
@@ -176,16 +230,41 @@ public class BookServiceImpl implements BookService {
 	}
 
 	/**
+	 * 查询图书最新位置信息。
+	 *
+	 * @param bookId 图书ID
+	 * @return 图书位置信息
+	 */
+	private BookLocation resolveLatestLocation(Long bookId) {
+		if (bookId == null) {
+			return null;
+		}
+
+		return bookLocationMapper.selectOne(new LambdaQueryWrapper<BookLocation>()
+			.eq(BookLocation::getBookId, bookId)
+			.orderByDesc(BookLocation::getUpdateTime)
+			.orderByDesc(BookLocation::getLocationId)
+			.last("limit 1"));
+	}
+
+	/**
 	 * 构建图书详情返回对象。
 	 *
 	 * @param book 图书实体
 	 * @param categoryName 分类名称
+	 * @param location 位置信息
 	 * @return 图书详情返回对象
 	 */
-	private BookDetailVO buildBookDetailVO(Book book, String categoryName) {
+	private BookDetailVO buildBookDetailVO(Book book, String categoryName, BookLocation location) {
 		BookDetailVO bookDetailVO = new BookDetailVO();
 		BeanUtils.copyProperties(book, bookDetailVO);
 		bookDetailVO.setCategoryName(categoryName);
+		if (location != null) {
+			bookDetailVO.setFloor(location.getFloor());
+			bookDetailVO.setArea(location.getArea());
+			bookDetailVO.setShelfNo(location.getShelfNo());
+			bookDetailVO.setLayer(location.getLayer());
+		}
 		return bookDetailVO;
 	}
 

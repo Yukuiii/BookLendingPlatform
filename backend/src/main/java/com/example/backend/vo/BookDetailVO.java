@@ -56,6 +56,26 @@ public class BookDetailVO {
 	private String categoryName;
 
 	/**
+	 * 楼层。
+	 */
+	private Integer floor;
+
+	/**
+	 * 区域。
+	 */
+	private String area;
+
+	/**
+	 * 书架号。
+	 */
+	private String shelfNo;
+
+	/**
+	 * 层数。
+	 */
+	private Integer layer;
+
+	/**
 	 * 计算机子领域。
 	 */
 	private String subField;
@@ -125,4 +145,3 @@ public class BookDetailVO {
 	 */
 	private LocalDateTime updateTime;
 }
-

@@ -779,6 +779,18 @@ select {
   font-size: 12px;
 }
 
+.book-card-location {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.book-card-scene {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
 .book-detail-head {
   display: flex;
   gap: 16px;
@@ -873,6 +885,12 @@ select {
   justify-content: space-between;
   gap: 12px;
   margin-top: auto;
+}
+
+.book-card-actions-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .home-pagination {

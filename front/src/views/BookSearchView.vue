@@ -128,6 +128,15 @@ function handleBorrow(book) {
 }
 
 /**
+ * 处理收藏按钮点击。
+ *
+ * @param {object} book 图书对象
+ */
+function handleFavorite(book) {
+  ElMessage.success(`已为你准备《${book.bookName}》的收藏入口，后续可继续接收藏接口`)
+}
+
+/**
  * 查看图书详情。
  *
  * @param {object} book 图书对象
@@ -161,6 +170,38 @@ function resetDetailState() {
   detailLoading.value = false
   detailError.value = ''
   detailBook.value = null
+}
+
+/**
+ * 格式化图书位置信息。
+ *
+ * @param {object} book 图书对象
+ * @returns {string} 位置信息
+ */
+function formatLocation(book) {
+  const floor = book?.floor
+  const area = book?.area
+  const shelfNo = book?.shelfNo
+  const layer = book?.layer
+
+  if (floor == null && !area && !shelfNo && layer == null) {
+    return '暂无'
+  }
+
+  const fragments = []
+  if (floor != null) {
+    fragments.push(`${floor}层`)
+  }
+  if (area) {
+    fragments.push(`${area}区`)
+  }
+  if (shelfNo) {
+    fragments.push(`书架${shelfNo}`)
+  }
+  if (layer != null) {
+    fragments.push(`第${layer}层`)
+  }
+  return fragments.join(' · ')
 }
 
 /**
@@ -283,15 +324,16 @@ function resolveDifficultyType(difficultyLevel) {
         <div class="book-card-content">
           <div class="book-card-head">
             <h3 class="book-card-title">{{ book.bookName }}</h3>
-            <el-tag :type="book.status === 1 ? 'success' : 'info'" effect="light">
-              {{ book.status === 1 ? '在馆可借' : '已下架' }}
-            </el-tag>
+            <el-tag v-if="book.status !== 1" type="info" effect="light">已下架</el-tag>
           </div>
 
           <p class="book-card-author">{{ book.author || '未知作者' }} · {{ book.publisher || '未知出版社' }}</p>
           <p class="book-card-isbn">ISBN：{{ book.isbn || '暂无' }}</p>
+          <p class="book-card-location">位置：{{ formatLocation(book) }}</p>
+          <p class="book-card-scene">适用场景：{{ book.suitableScene || '暂无' }}</p>
 
           <div class="book-card-tags">
+            <el-tag v-if="book.categoryName" effect="plain" size="small">{{ book.categoryName }}</el-tag>
             <el-tag effect="plain" size="small">{{ resolveSubField(book) }}</el-tag>
             <el-tag effect="light" size="small" :type="resolveDifficultyType(book.difficultyLevel)">
               {{ resolveDifficultyLabel(book.difficultyLevel) }}
@@ -307,7 +349,10 @@ function resolveDifficultyType(difficultyLevel) {
           </div>
 
           <div class="book-card-actions">
-            <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
+            <div class="book-card-actions-left">
+              <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
+              <el-button type="primary" link @click="handleFavorite(book)">收藏</el-button>
+            </div>
             <el-button type="warning" :disabled="book.status !== 1 || !(book.availableCount > 0)" @click="handleBorrow(book)">
               立即借阅
             </el-button>
@@ -370,12 +415,16 @@ function resolveDifficultyType(difficultyLevel) {
         </div>
 
         <el-descriptions class="book-detail-desc" :column="2" border>
+          <el-descriptions-item label="分类">{{ detailBook.categoryName || '暂无' }}</el-descriptions-item>
           <el-descriptions-item label="ISBN">{{ detailBook.isbn || '暂无' }}</el-descriptions-item>
+          <el-descriptions-item label="位置">{{ formatLocation(detailBook) }}</el-descriptions-item>
           <el-descriptions-item label="出版日期">{{ detailBook.publishDate || '未知' }}</el-descriptions-item>
+          <el-descriptions-item label="适用场景">{{ detailBook.suitableScene || '暂无' }}</el-descriptions-item>
+          <el-descriptions-item label="适用人群">{{ detailBook.targetAudience || '暂无' }}</el-descriptions-item>
           <el-descriptions-item label="馆藏">{{ detailBook.totalCount ?? 0 }}</el-descriptions-item>
           <el-descriptions-item label="可借">{{ detailBook.availableCount ?? 0 }}</el-descriptions-item>
           <el-descriptions-item label="借阅">{{ detailBook.borrowCount ?? 0 }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ detailBook.status === 1 ? '在馆可借' : '已下架' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ detailBook.status === 1 ? '正常' : '下架' }}</el-descriptions-item>
         </el-descriptions>
 
         <el-divider />
@@ -392,6 +441,14 @@ function resolveDifficultyType(difficultyLevel) {
     </div>
 
     <template #footer>
+      <el-button type="primary" plain :disabled="!detailBook" @click="handleFavorite(detailBook)">收藏</el-button>
+      <el-button
+        type="warning"
+        :disabled="!detailBook || detailBook.status !== 1 || !(detailBook.availableCount > 0)"
+        @click="handleBorrow(detailBook)"
+      >
+        立即借阅
+      </el-button>
       <el-button @click="detailDialogVisible = false">关闭</el-button>
     </template>
   </el-dialog>

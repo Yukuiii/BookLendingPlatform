@@ -61,6 +61,8 @@ INSERT INTO `book` (
   `suitable_scene`,
   `cover_url`,
   `description`,
+  `catalog`,
+  `author_intro`,
   `target_audience`,
   `total_count`,
   `available_count`,
@@ -79,6 +81,8 @@ INSERT INTO `book` (
     '课程学习, 面试提升',
     'https://images.unsplash.com/photo-1508169351866-777fc0047ac5?auto=format&fit=crop&w=480&q=80',
     '经典系统教材，覆盖程序表示、处理器体系结构、存储层次与并发。',
+    '第1章 计算机系统漫游\n第2章 信息的表示和处理\n第3章 程序的机器级表示\n第4章 处理器体系结构\n第5章 优化程序性能\n第6章 存储器层次结构\n第7章 链接\n第8章 异常控制流\n第9章 虚拟内存\n第10章 系统级I/O\n第11章 网络编程\n第12章 并发编程',
+    'Randal E. Bryant 与 David R. O’Hallaron 均为卡内基梅隆大学教授，长期从事系统与并行计算教学与研究。',
     '计算机相关专业学生, 系统开发者',
     12,
     9,
@@ -97,6 +101,8 @@ INSERT INTO `book` (
     '工程实践, 代码质量',
     'https://images.unsplash.com/photo-1503543791519-1694c6b20779?auto=format&fit=crop&w=480&q=80',
     '全面的软件构建指南，涵盖编码规范、设计与调试实践。',
+    '第1部 软件构建基础\n第2部 设计\n第3部 变量\n第4部 语句\n第5部 代码改善\n第6部 系统考虑\n第7部 软件工艺\n附录',
+    'Steve McConnell 是软件工程领域作者与讲师，专注于软件构建与工程效率提升。',
     '有一定编码经验的开发者',
     8,
     3,
@@ -115,6 +121,8 @@ INSERT INTO `book` (
     '入门学习',
     'https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=480&q=80',
     '用插图解释 HTTP/HTTPS、Cookies、缓存与安全机制。',
+    '第1章 了解 Web 及网络基础\n第2章 简单的 HTTP 协议\n第3章 HTTP 报文内的 HTTP 信息\n第4章 返回结果的 HTTP 状态码\n第5章 与 HTTP 协作的 Web 服务器\n第6章 HTTP 首部\n第7章 确保 Web 安全的 HTTPS\n第8章 确认访问用户身份的认证',
+    '上野宣为日本技术作者，长期撰写网络与 Web 开发相关书籍。',
     '网络与 Web 开发入门者',
     15,
     12,
@@ -133,6 +141,8 @@ INSERT INTO `book` (
     '课程学习, 日常开发',
     'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?auto=format&fit=crop&w=480&q=80',
     '面向 Java SE 的核心概念与 API 实战。',
+    '第1章 Java 程序设计概述\n第2章 Java 程序设计环境\n第3章 Java 基础程序设计结构\n第4章 对象与类\n第5章 继承\n第6章 接口、lambda 与内部类\n第7章 异常、断言与日志\n第8章 泛型\n第9章 集合\n第10章 图形程序设计\n第11章 事件处理\n第12章 Swing',
+    'Cay S. Horstmann 长期从事 Java 教学与工程实践，著有多部经典 Java 书籍。',
     'Java 开发者, 计算机相关专业学生',
     10,
     6,
@@ -151,6 +161,8 @@ INSERT INTO `book` (
     'Web 开发, 后端实战',
     'https://images.unsplash.com/photo-1527135472885-9908bbe7d61f?auto=format&fit=crop&w=480&q=80',
     '以项目驱动讲解 Spring 生态核心能力。',
+    '第1章 Spring 入门\n第2章 开发 Web 应用\n第3章 数据持久化\n第4章 安全\n第5章 运行与部署\n第6章 REST API\n第7章 消息与集成',
+    'Craig Walls 是 Spring 社区资深作者与讲师，长期关注 Spring 生态实践。',
     '后端开发者',
     9,
     5,
@@ -169,6 +181,8 @@ INSERT INTO `book` (
     'SQL 入门',
     'https://images.unsplash.com/photo-1601221018729-15aec0cf430f?auto=format&fit=crop&w=480&q=80',
     '从 SELECT 到 JOIN 与子查询，快速掌握 SQL 基础。',
+    '第1章 了解 SQL\n第2章 检索数据\n第3章 排序与过滤\n第4章 数据汇总\n第5章 分组\n第6章 子查询\n第7章 联结\n第8章 组合查询\n第9章 插入/更新/删除\n第10章 视图\n第11章 存储过程\n第12章 事务',
+    'Ben Forta 是技术顾问与讲师，擅长将数据库与 Web 技术以易懂方式讲解。',
     '数据库入门者, 后端开发者',
     18,
     14,
@@ -187,6 +201,8 @@ INSERT INTO `book` (
     '性能优化, 生产排障',
     'https://images.unsplash.com/photo-1651261525945-5382b021bfeb?auto=format&fit=crop&w=480&q=80',
     '深入 MySQL 内部与性能优化方法。',
+    '第1章 MySQL 架构与历史\n第2章 MySQL 基准测试\n第3章 服务器性能剖析\n第4章 Schema 与数据类型优化\n第5章 索引\n第6章 查询性能优化\n第7章 高级 MySQL 特性\n第8章 复制\n第9章 备份与恢复\n第10章 扩展 MySQL',
+    'Baron Schwartz、Peter Zaitsev、Vadim Tkachenko 等为 MySQL 性能与运维领域资深专家。',
     '中高级后端开发者, DBA',
     6,
     2,
@@ -205,6 +221,8 @@ INSERT INTO `book` (
     '课程学习, 面试准备',
     'https://images.unsplash.com/photo-1689023542260-faa90df36bb4?auto=format&fit=crop&w=480&q=80',
     '经典算法与数据结构教材，配套大量示例与练习。',
+    '第1章 基础\n第2章 排序\n第3章 查找\n第4章 图\n第5章 字符串\n第6章 上下文\n附录',
+    'Robert Sedgewick 与 Kevin Wayne 来自普林斯顿大学，共同开发算法课程并编写本书。',
     '计算机相关专业学生, 面试准备者',
     11,
     8,
@@ -223,6 +241,8 @@ INSERT INTO `book` (
     '架构设计, 系统演进',
     'https://images.unsplash.com/photo-1732304720450-0fe31c39f491?auto=format&fit=crop&w=480&q=80',
     '从存储、复制、分区到流处理，系统性讲解数据系统设计。',
+    '第1章 可靠性、可伸缩性与可维护性\n第2章 数据模型与查询语言\n第3章 存储与检索\n第4章 编码与演化\n第5章 复制\n第6章 分区\n第7章 事务\n第8章 分布式系统的麻烦\n第9章 一致性与共识\n第10章 批处理\n第11章 流处理\n第12章 数据系统的未来',
+    'Martin Kleppmann 是分布式系统与数据基础设施研究者，擅长用工程视角解读系统设计。',
     '架构师, 中高级后端开发者',
     7,
     4,
@@ -241,6 +261,8 @@ INSERT INTO `book` (
     '课程学习, 项目实践',
     'https://images.unsplash.com/photo-1570047435693-4a1d6bbc6220?auto=format&fit=crop&w=480&q=80',
     '结合 scikit-learn 的端到端机器学习入门与实践。',
+    '第1章 机器学习概览\n第2章 训练简单的机器学习算法\n第3章 使用 scikit-learn\n第4章 特征工程\n第5章 模型评估与调参\n第6章 集成学习\n第7章 文本与情感分析\n第8章 深度学习入门',
+    'Sebastian Raschka 与 Vahid Mirjalili 长期从事机器学习相关研究与教学，并编写多本畅销教程。',
     '数据分析入门者, 开发者',
     9,
     7,
@@ -376,6 +398,28 @@ CREATE TABLE IF NOT EXISTS `book_location` (
   KEY `idx_book_location_book_id` (`book_id`),
   CONSTRAINT `fk_book_location_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书位置表';
+
+-- 初始化图书位置信息（仅用于空库初始化）
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 2, 'A', 'A-03', 2, 'RFID-000001' FROM `book` WHERE `isbn` = '9787111128069';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 3, 'B', 'B-12', 1, 'RFID-000002' FROM `book` WHERE `isbn` = '9787111213826';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 1, 'C', 'C-05', 3, 'RFID-000003' FROM `book` WHERE `isbn` = '9787115474063';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 2, 'D', 'D-08', 2, 'RFID-000004' FROM `book` WHERE `isbn` = '9787111629245';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 2, 'D', 'D-09', 1, 'RFID-000005' FROM `book` WHERE `isbn` = '9787115428028';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 2, 'E', 'E-02', 1, 'RFID-000006' FROM `book` WHERE `isbn` = '9787111636649';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 2, 'E', 'E-03', 2, 'RFID-000007' FROM `book` WHERE `isbn` = '9787111558422';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 3, 'F', 'F-01', 1, 'RFID-000008' FROM `book` WHERE `isbn` = '9787111126942';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 3, 'A', 'A-07', 1, 'RFID-000009' FROM `book` WHERE `isbn` = '9787111652038';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
+SELECT `book_id`, 4, 'G', 'G-04', 2, 'RFID-000010' FROM `book` WHERE `isbn` = '9787111605904';
 
 CREATE TABLE IF NOT EXISTS `comment` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '评论ID',
