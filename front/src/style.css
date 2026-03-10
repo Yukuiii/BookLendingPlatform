@@ -418,8 +418,12 @@ select {
 .home-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 4px 8px 12px;
+  gap: 10px;
+  padding: 4px 4px 12px;
+}
+
+.home-brand > div {
+  min-width: 0;
 }
 
 .home-brand-logo {
@@ -441,12 +445,14 @@ select {
   color: #111827;
   font-size: 16px;
   line-height: 1.3;
+  white-space: nowrap;
 }
 
 .home-brand-subtitle {
   margin: 4px 0 0;
   color: #9ca3af;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .home-menu {

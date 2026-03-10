@@ -29,7 +29,7 @@ function handleSelect(menuKey) {
   <div class="home-brand">
     <div class="home-brand-logo">图</div>
     <div>
-      <strong class="home-brand-title">图书馆智能借阅</strong>
+      <strong class="home-brand-title">图书借阅管理系统</strong>
       <p class="home-brand-subtitle">Library Console</p>
     </div>
   </div>
