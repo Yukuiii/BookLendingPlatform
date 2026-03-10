@@ -66,7 +66,7 @@ async function handleLoginSubmit() {
     })
     setCurrentUser(response.data)
     updateSubmitMessage(response.message || '登录成功', false)
-    await router.push({ name: 'home' })
+    await router.push({ name: 'books' })
   } catch (error) {
     updateSubmitMessage(error.message || '登录失败，请稍后重试', true)
   } finally {

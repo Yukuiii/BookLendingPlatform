@@ -599,6 +599,23 @@ select {
   padding: 20px 24px;
 }
 
+.console-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid #ebeef5;
+  background: #ffffff;
+  padding: 14px 24px;
+  height: auto;
+}
+
+.console-footer-text {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
 .home-stat-row {
   margin-bottom: 16px;
 }
@@ -686,6 +703,10 @@ select {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
   min-height: 280px;
+}
+
+.home-book-grid > .el-empty {
+  grid-column: 1 / -1;
 }
 
 .book-card {
@@ -814,7 +835,8 @@ select {
   }
 
   .home-header,
-  .home-main {
+  .home-main,
+  .console-footer {
     padding-left: 16px;
     padding-right: 16px;
   }
