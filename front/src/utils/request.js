@@ -1,3 +1,5 @@
+import { getCurrentUser } from './auth'
+
 const DEFAULT_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8080').replace(/\/$/, '')
 
 /**
@@ -8,10 +10,14 @@ const DEFAULT_API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0
  * @returns {Promise<any>} 响应结果
  */
 export async function request(path, options = {}) {
+  const currentUser = getCurrentUser()
+  const userId = currentUser?.userId
+
   const requestOptions = {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(userId != null ? { 'X-User-Id': String(userId) } : {}),
       ...(options.headers || {}),
     },
   }

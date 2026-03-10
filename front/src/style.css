@@ -791,6 +791,62 @@ select {
   font-size: 12px;
 }
 
+.borrow-book-cell {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.borrow-book-cover,
+.borrow-book-cover-placeholder {
+  width: 56px;
+  height: 72px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.borrow-book-cover-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #e0ecff 0%, #c7ddff 100%);
+  color: #1d4ed8;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.borrow-book-meta {
+  min-width: 0;
+}
+
+.borrow-book-title {
+  display: block;
+  color: #111827;
+  font-size: 13px;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.borrow-book-subtitle {
+  margin: 4px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.borrow-book-extra {
+  margin: 4px 0 0;
+  color: #9ca3af;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .book-detail-head {
   display: flex;
   gap: 16px;

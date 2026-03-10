@@ -3,7 +3,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { DataAnalysis } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
+import { borrowBook } from '../api/borrow'
 import { getBookDetail, pageBooks } from '../api/book'
+import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
  * 图书检索页面，负责筛选与展示图书分页数据。
@@ -123,8 +125,26 @@ function handleSizeChange(size) {
  *
  * @param {object} book 图书对象
  */
-function handleBorrow(book) {
-  ElMessage.success(`已为你准备《${book.bookName}》的借阅入口，后续可继续接借阅接口`)
+async function handleBorrow(book) {
+  const bookId = book?.bookId
+  if (!bookId) {
+    ElMessage.warning('图书信息不完整，暂无法借阅')
+    return
+  }
+
+  try {
+    const result = await borrowBook(bookId)
+    const dueDate = result?.dueDate ? formatDateTime(result.dueDate) : ''
+    ElMessage.success(dueDate ? `借阅成功，应还日期：${dueDate}` : '借阅成功')
+
+    await loadBooks()
+
+    if (detailDialogVisible.value && detailBook.value?.bookId === bookId) {
+      detailBook.value = await getBookDetail(bookId)
+    }
+  } catch (error) {
+    ElMessage.error(error.message || '借阅失败，请稍后重试')
+  }
 }
 
 /**
@@ -170,38 +190,6 @@ function resetDetailState() {
   detailLoading.value = false
   detailError.value = ''
   detailBook.value = null
-}
-
-/**
- * 格式化图书位置信息。
- *
- * @param {object} book 图书对象
- * @returns {string} 位置信息
- */
-function formatLocation(book) {
-  const floor = book?.floor
-  const area = book?.area
-  const shelfNo = book?.shelfNo
-  const layer = book?.layer
-
-  if (floor == null && !area && !shelfNo && layer == null) {
-    return '暂无'
-  }
-
-  const fragments = []
-  if (floor != null) {
-    fragments.push(`${floor}层`)
-  }
-  if (area) {
-    fragments.push(`${area}区`)
-  }
-  if (shelfNo) {
-    fragments.push(`书架${shelfNo}`)
-  }
-  if (layer != null) {
-    fragments.push(`第${layer}层`)
-  }
-  return fragments.join(' · ')
 }
 
 /**
