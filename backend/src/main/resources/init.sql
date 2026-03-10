@@ -55,6 +55,7 @@ INSERT INTO `book` (
   `author`,
   `publisher`,
   `publish_date`,
+  `category_id`,
   `sub_field`,
   `difficulty_level`,
   `suitable_scene`,
@@ -72,6 +73,7 @@ INSERT INTO `book` (
     'Randal E. Bryant / David R. O’Hallaron',
     '机械工业出版社',
     '2016-04-01',
+    101,
     '系统',
     3,
     '课程学习, 面试提升',
@@ -89,6 +91,7 @@ INSERT INTO `book` (
     'Steve McConnell',
     '电子工业出版社',
     '2006-06-01',
+    102,
     '软件工程',
     2,
     '工程实践, 代码质量',
@@ -106,6 +109,7 @@ INSERT INTO `book` (
     '上野宣',
     '人民邮电出版社',
     '2014-05-01',
+    103,
     '网络',
     1,
     '入门学习',
@@ -123,6 +127,7 @@ INSERT INTO `book` (
     'Cay S. Horstmann',
     '机械工业出版社',
     '2020-01-01',
+    104,
     'Java',
     2,
     '课程学习, 日常开发',
@@ -140,6 +145,7 @@ INSERT INTO `book` (
     'Craig Walls',
     '人民邮电出版社',
     '2019-03-01',
+    104,
     'Java',
     2,
     'Web 开发, 后端实战',
@@ -157,6 +163,7 @@ INSERT INTO `book` (
     'Ben Forta',
     '人民邮电出版社',
     '2019-08-01',
+    105,
     '数据库',
     1,
     'SQL 入门',
@@ -174,6 +181,7 @@ INSERT INTO `book` (
     'Baron Schwartz / Peter Zaitsev / Vadim Tkachenko',
     '电子工业出版社',
     '2017-09-01',
+    105,
     '数据库',
     3,
     '性能优化, 生产排障',
@@ -191,6 +199,7 @@ INSERT INTO `book` (
     'Robert Sedgewick / Kevin Wayne',
     '人民邮电出版社',
     '2012-10-01',
+    106,
     '算法',
     2,
     '课程学习, 面试准备',
@@ -208,6 +217,7 @@ INSERT INTO `book` (
     'Martin Kleppmann',
     '中国电力出版社',
     '2018-11-01',
+    107,
     '分布式',
     3,
     '架构设计, 系统演进',
@@ -225,6 +235,7 @@ INSERT INTO `book` (
     'Sebastian Raschka / Vahid Mirjalili',
     '人民邮电出版社',
     '2019-01-01',
+    108,
     '机器学习',
     2,
     '课程学习, 项目实践',
@@ -248,6 +259,23 @@ CREATE TABLE IF NOT EXISTS `book_category` (
   PRIMARY KEY (`category_id`),
   KEY `idx_book_category_parent_id` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书分类表';
+
+-- 初始化图书分类数据（仅用于空库初始化，重复执行会因主键冲突报错）
+INSERT INTO `book_category` (
+  `category_id`,
+  `category_name`,
+  `parent_id`,
+  `sort_order`,
+  `status`
+) VALUES
+  (101, '系统与架构', 0, 10, 1),
+  (102, '软件工程', 0, 20, 1),
+  (103, '网络与 Web', 0, 30, 1),
+  (104, 'Java 开发', 0, 40, 1),
+  (105, '数据库', 0, 50, 1),
+  (106, '算法与数据结构', 0, 60, 1),
+  (107, '分布式系统', 0, 70, 1),
+  (108, '机器学习', 0, 80, 1);
 
 CREATE TABLE IF NOT EXISTS `borrow_record` (
   `borrow_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',

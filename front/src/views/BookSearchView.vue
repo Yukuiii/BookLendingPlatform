@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { DataAnalysis } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
-import { pageBooks } from '../api/book'
+import { getBookDetail, pageBooks } from '../api/book'
 
 /**
  * 图书检索页面，负责筛选与展示图书分页数据。
@@ -15,6 +15,11 @@ const books = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(8)
+
+const detailDialogVisible = ref(false)
+const detailLoading = ref(false)
+const detailError = ref('')
+const detailBook = ref(null)
 
 const queryForm = reactive({
   bookName: '',
@@ -120,6 +125,42 @@ function handleSizeChange(size) {
  */
 function handleBorrow(book) {
   ElMessage.success(`已为你准备《${book.bookName}》的借阅入口，后续可继续接借阅接口`)
+}
+
+/**
+ * 查看图书详情。
+ *
+ * @param {object} book 图书对象
+ */
+async function handleViewDetail(book) {
+  const bookId = book?.bookId
+  if (!bookId) {
+    ElMessage.warning('图书信息不完整，暂无法查看详情')
+    return
+  }
+
+  detailDialogVisible.value = true
+  detailLoading.value = true
+  detailError.value = ''
+  detailBook.value = null
+
+  try {
+    detailBook.value = await getBookDetail(bookId)
+  } catch (error) {
+    detailError.value = error.message || '图书详情加载失败，请稍后重试'
+    ElMessage.error(detailError.value)
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+/**
+ * 重置图书详情弹窗状态。
+ */
+function resetDetailState() {
+  detailLoading.value = false
+  detailError.value = ''
+  detailBook.value = null
 }
 
 /**
@@ -248,6 +289,7 @@ function resolveDifficultyType(difficultyLevel) {
           </div>
 
           <p class="book-card-author">{{ book.author || '未知作者' }} · {{ book.publisher || '未知出版社' }}</p>
+          <p class="book-card-isbn">ISBN：{{ book.isbn || '暂无' }}</p>
 
           <div class="book-card-tags">
             <el-tag effect="plain" size="small">{{ resolveSubField(book) }}</el-tag>
@@ -265,7 +307,7 @@ function resolveDifficultyType(difficultyLevel) {
           </div>
 
           <div class="book-card-actions">
-            <el-button type="primary" link>查看详情</el-button>
+            <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
             <el-button type="warning" :disabled="book.status !== 1 || !(book.availableCount > 0)" @click="handleBorrow(book)">
               立即借阅
             </el-button>
@@ -289,5 +331,68 @@ function resolveDifficultyType(difficultyLevel) {
       @size-change="handleSizeChange"
     />
   </div>
-</template>
 
+  <el-dialog
+    v-model="detailDialogVisible"
+    :title="detailBook?.bookName || '图书详情'"
+    width="720px"
+    destroy-on-close
+    @closed="resetDetailState"
+  >
+    <div v-loading="detailLoading">
+      <el-alert v-if="detailError" :closable="false" type="error" :title="detailError" show-icon />
+
+      <template v-else-if="detailBook">
+        <div class="book-detail-head">
+          <div class="book-detail-cover">
+            <el-image v-if="detailBook.coverUrl" :src="detailBook.coverUrl" fit="cover" class="book-card-cover">
+              <template #error>
+                <div class="book-card-cover-placeholder">{{ buildCoverPlaceholder(detailBook) }}</div>
+              </template>
+            </el-image>
+            <div v-else class="book-card-cover-placeholder">{{ buildCoverPlaceholder(detailBook) }}</div>
+          </div>
+
+          <div class="book-detail-meta">
+            <h2 class="book-detail-title">{{ detailBook.bookName }}</h2>
+            <p class="book-detail-subtitle">
+              {{ detailBook.author || '未知作者' }} · {{ detailBook.publisher || '未知出版社' }}
+            </p>
+
+            <div class="book-detail-tags">
+              <el-tag v-if="detailBook.categoryName" effect="plain" size="small">{{ detailBook.categoryName }}</el-tag>
+              <el-tag v-if="detailBook.subField" effect="plain" size="small">{{ detailBook.subField }}</el-tag>
+              <el-tag effect="light" size="small" :type="resolveDifficultyType(detailBook.difficultyLevel)">
+                {{ resolveDifficultyLabel(detailBook.difficultyLevel) }}
+              </el-tag>
+            </div>
+          </div>
+        </div>
+
+        <el-descriptions class="book-detail-desc" :column="2" border>
+          <el-descriptions-item label="ISBN">{{ detailBook.isbn || '暂无' }}</el-descriptions-item>
+          <el-descriptions-item label="出版日期">{{ detailBook.publishDate || '未知' }}</el-descriptions-item>
+          <el-descriptions-item label="馆藏">{{ detailBook.totalCount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="可借">{{ detailBook.availableCount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="借阅">{{ detailBook.borrowCount ?? 0 }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ detailBook.status === 1 ? '在馆可借' : '已下架' }}</el-descriptions-item>
+        </el-descriptions>
+
+        <el-divider />
+
+        <h3 class="book-detail-section-title">简介</h3>
+        <p class="book-detail-text">{{ detailBook.description || '暂无简介' }}</p>
+
+        <h3 class="book-detail-section-title">目录</h3>
+        <p class="book-detail-text">{{ detailBook.catalog || '暂无目录' }}</p>
+
+        <h3 class="book-detail-section-title">作者简介</h3>
+        <p class="book-detail-text">{{ detailBook.authorIntro || '暂无作者简介' }}</p>
+      </template>
+    </div>
+
+    <template #footer>
+      <el-button @click="detailDialogVisible = false">关闭</el-button>
+    </template>
+  </el-dialog>
+</template>

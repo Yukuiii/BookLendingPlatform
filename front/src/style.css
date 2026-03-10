@@ -773,6 +773,74 @@ select {
   font-size: 12px;
 }
 
+.book-card-isbn {
+  margin: 0;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.book-detail-head {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.book-detail-cover {
+  width: 160px;
+  height: 220px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.book-detail-cover .book-card-cover,
+.book-detail-cover .book-card-cover-placeholder {
+  height: 100%;
+}
+
+.book-detail-meta {
+  min-width: 0;
+}
+
+.book-detail-title {
+  margin: 0;
+  color: #111827;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.book-detail-subtitle {
+  margin: 10px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.book-detail-tags {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.book-detail-desc {
+  margin-top: 16px;
+}
+
+.book-detail-section-title {
+  margin: 16px 0 8px;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.book-detail-text {
+  margin: 0;
+  color: #4b5563;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 .book-card-tags {
   display: flex;
   flex-wrap: wrap;

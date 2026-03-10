@@ -1,7 +1,8 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.BookPageQueryDTO;
-import com.example.backend.entity.Book;
+import com.example.backend.vo.BookDetailVO;
+import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.PageResult;
 
 /**
@@ -15,5 +16,13 @@ public interface BookService {
 	 * @param queryDTO 查询参数
 	 * @return 图书分页结果
 	 */
-	PageResult<Book> pageBooks(BookPageQueryDTO queryDTO);
+	PageResult<BookPageVO> pageBooks(BookPageQueryDTO queryDTO);
+
+	/**
+	 * 查询图书详情信息。
+	 *
+	 * @param bookId 图书ID
+	 * @return 图书详情
+	 */
+	BookDetailVO getBookDetail(Long bookId);
 }

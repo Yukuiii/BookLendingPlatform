@@ -23,3 +23,15 @@ export function pageBooks(params = {}) {
     method: 'GET',
   })
 }
+
+/**
+ * 查询图书详情。
+ *
+ * @param {number|string} bookId 图书ID
+ * @returns {Promise<any>} 图书详情
+ */
+export function getBookDetail(bookId) {
+  return request(`/books/${encodeURIComponent(bookId)}`, {
+    method: 'GET',
+  })
+}
