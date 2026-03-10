@@ -17,13 +17,14 @@
 html,
 body,
 #app {
-  min-width: 320px;
+  width: 100%;
   min-height: 100vh;
 }
 
 body {
   margin: 0;
   background: #f2f3f5;
+  overflow-x: hidden;
 }
 
 button,
@@ -62,12 +63,18 @@ select {
 }
 
 .auth-shell {
+  width: 100%;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 32px 16px;
+  overflow-x: hidden;
+}
+
+.auth-header {
+  width: 100%;
 }
 
 .auth-card {
@@ -295,6 +302,11 @@ select {
   font-size: 11px;
   color: #b0b7c3;
   text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.auth-footer {
+  width: 100%;
 }
 
 @media (max-width: 480px) {
