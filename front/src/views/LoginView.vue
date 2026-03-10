@@ -1,7 +1,7 @@
 <script setup>
 import { reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Eye, EyeOff, LibraryBig, LockKeyhole, UserRound } from 'lucide-vue-next'
+import { Lock, Reading, User } from '@element-plus/icons-vue'
 
 import { login } from '../api/auth'
 import AuthFooter from '../components/auth/AuthFooter.vue'
@@ -17,32 +17,10 @@ const loginForm = reactive({
   userType: '1',
 })
 
-const passwordVisible = ref(false)
+const formRef = ref(null)
 const submitting = ref(false)
 const submitMessage = ref(typeof route.query.registered === 'string' ? '注册成功，请使用新账号登录。' : '')
 const submitError = ref(false)
-
-/**
- * 切换登录密码框的明文显示状态。
- */
-function togglePasswordVisible() {
-  passwordVisible.value = !passwordVisible.value
-}
-
-/**
- * 校验登录表单。
- *
- * @returns {string} 校验结果消息
- */
-function validateLoginForm() {
-  if (!loginForm.username.trim()) {
-    return '请输入用户名'
-  }
-  if (!loginForm.password) {
-    return '请输入密码'
-  }
-  return ''
-}
 
 /**
  * 更新提交反馈消息。
@@ -55,18 +33,30 @@ function updateSubmitMessage(message, isError) {
   submitError.value = isError
 }
 
+const loginRules = {
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
+  userType: [{ required: true, message: '请选择用户类型', trigger: 'change' }],
+}
+
 /**
  * 处理登录表单提交。
  */
 async function handleLoginSubmit() {
-  const validationMessage = validateLoginForm()
-  if (validationMessage) {
-    updateSubmitMessage(validationMessage, true)
+  if (submitting.value) {
+    return
+  }
+
+  updateSubmitMessage('', false)
+
+  try {
+    await formRef.value?.validate()
+  } catch {
+    updateSubmitMessage('请完善登录信息', true)
     return
   }
 
   submitting.value = true
-  updateSubmitMessage('', false)
 
   try {
     const response = await login({
@@ -90,67 +80,61 @@ async function handleLoginSubmit() {
     <section class="auth-card">
       <header class="auth-header">
         <div class="brand-icon" aria-hidden="true">
-          <LibraryBig />
+          <el-icon><Reading /></el-icon>
         </div>
 
         <h1 class="auth-title">图书借阅管理系统</h1>
         <p class="auth-subtitle">请输入您的账户信息进行登录</p>
       </header>
 
-      <form class="auth-form" @submit.prevent="handleLoginSubmit">
-        <label class="field-group" for="login-username">
-          <span class="field-label">用户名</span>
-          <div class="field-control">
-            <span class="field-prefix" aria-hidden="true">
-              <UserRound />
-            </span>
-            <input id="login-username" v-model="loginForm.username" type="text" placeholder="请输入用户名" />
-          </div>
-        </label>
+      <el-form
+        ref="formRef"
+        class="auth-form auth-form--element"
+        :model="loginForm"
+        :rules="loginRules"
+        label-position="top"
+        @submit.prevent="handleLoginSubmit"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="loginForm.username" placeholder="请输入用户名" clearable>
+            <template #prefix>
+              <el-icon><User /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
 
-        <label class="field-group" for="login-password">
-          <span class="field-label">密码</span>
-          <div class="field-control">
-            <span class="field-prefix" aria-hidden="true">
-              <LockKeyhole />
-            </span>
-            <input
-              id="login-password"
-              v-model="loginForm.password"
-              :type="passwordVisible ? 'text' : 'password'"
-              placeholder="请输入密码"
-            />
-            <button class="field-action" type="button" aria-label="切换密码显示状态" @click="togglePasswordVisible">
-              <EyeOff v-if="passwordVisible" />
-              <Eye v-else />
-            </button>
-          </div>
-        </label>
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="loginForm.password" type="password" show-password placeholder="请输入密码" clearable>
+            <template #prefix>
+              <el-icon><Lock /></el-icon>
+            </template>
+          </el-input>
+        </el-form-item>
 
-        <div class="field-group">
-          <span class="field-label">用户类型</span>
-          <div class="radio-group">
-            <label v-for="option in USER_TYPE_OPTIONS" :key="option.value" class="radio-item">
-              <input v-model="loginForm.userType" type="radio" name="login-user-type" :value="option.value" />
-              <span class="radio-dot"></span>
-              <span>{{ option.label }}</span>
-            </label>
-          </div>
-        </div>
+        <el-form-item label="用户类型" prop="userType">
+          <el-radio-group v-model="loginForm.userType" class="auth-radio-group">
+            <el-radio v-for="option in USER_TYPE_OPTIONS" :key="option.value" :label="option.value">
+              {{ option.label }}
+            </el-radio>
+          </el-radio-group>
+        </el-form-item>
 
-        <p v-if="submitMessage" :class="['form-message', submitError ? 'form-message--error' : 'form-message--success']">
-          {{ submitMessage }}
-        </p>
+        <el-alert
+          v-if="submitMessage"
+          class="auth-alert"
+          :closable="false"
+          show-icon
+          :type="submitError ? 'error' : 'success'"
+          :title="submitMessage"
+        />
 
-        <button class="submit-button" type="submit" :disabled="submitting">
-          {{ submitting ? '登录中...' : '登录系统' }}
-        </button>
+        <el-button class="auth-submit" type="primary" :loading="submitting" native-type="submit">登录系统</el-button>
 
         <p class="switch-text">
           还没有账号？
           <RouterLink class="switch-link" to="/register">立即注册</RouterLink>
         </p>
-      </form>
+      </el-form>
     </section>
 
     <AuthFooter />

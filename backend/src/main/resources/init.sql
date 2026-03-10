@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS `user` (
   `phone` VARCHAR(20) NOT NULL COMMENT '手机号',
   `identity_card` VARCHAR(20) NOT NULL COMMENT '身份证号',
   `major` VARCHAR(50) DEFAULT NULL COMMENT '专业',
-  `user_type` TINYINT NOT NULL COMMENT '用户类型：1学生，2图书管理员，3系统管理员',
+  `user_type` TINYINT NOT NULL COMMENT '用户类型：1用户，2图书管理员，3系统管理员',
   `max_borrow_count` INT DEFAULT 5 COMMENT '最大借阅数量',
   `status` TINYINT DEFAULT 1 COMMENT '状态：0禁用，1正常',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',

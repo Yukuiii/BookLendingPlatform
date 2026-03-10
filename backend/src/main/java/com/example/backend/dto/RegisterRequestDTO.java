@@ -19,6 +19,11 @@ public class RegisterRequestDTO {
 	private String realName;
 
 	/**
+	 * 专业。
+	 */
+	private String major;
+
+	/**
 	 * 密码。
 	 */
 	private String password;
@@ -37,9 +42,4 @@ public class RegisterRequestDTO {
 	 * 邮箱。
 	 */
 	private String email;
-
-	/**
-	 * 用户类型。
-	 */
-	private Integer userType;
 }

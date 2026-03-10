@@ -60,7 +60,7 @@ public class User {
 	private String major;
 
 	/**
-	 * 用户类型：1学生，2图书管理员，3系统管理员。
+	 * 用户类型：1用户，2图书管理员，3系统管理员。
 	 */
 	private Integer userType;
 

@@ -31,6 +31,11 @@ public class AuthServiceImpl implements AuthService {
 	private static final int NORMAL_STATUS = 1;
 
 	/**
+	 * 注册时固定用户类型：普通用户。
+	 */
+	private static final int REGISTER_USER_TYPE = 1;
+
+	/**
 	 * 默认最大借阅数量。
 	 */
 	private static final int DEFAULT_MAX_BORROW_COUNT = 5;
@@ -105,6 +110,7 @@ public class AuthServiceImpl implements AuthService {
 
 		String username = normalizeText(registerRequestDTO.getUsername());
 		String realName = normalizeText(registerRequestDTO.getRealName());
+		String major = normalizeText(registerRequestDTO.getMajor());
 		String phone = normalizeText(registerRequestDTO.getPhone());
 		String identityCard = normalizeText(registerRequestDTO.getIdentityCard());
 		String email = normalizeText(registerRequestDTO.getEmail());
@@ -117,11 +123,12 @@ public class AuthServiceImpl implements AuthService {
 		User user = new User();
 		user.setUsername(username);
 		user.setRealName(realName);
+		user.setMajor(StringUtils.hasText(major) ? major : null);
 		user.setPassword(PasswordUtils.encode(registerRequestDTO.getPassword()));
 		user.setPhone(phone);
 		user.setIdentityCard(identityCard);
 		user.setEmail(email);
-		user.setUserType(registerRequestDTO.getUserType());
+		user.setUserType(REGISTER_USER_TYPE);
 		user.setStatus(NORMAL_STATUS);
 		user.setMaxBorrowCount(DEFAULT_MAX_BORROW_COUNT);
 
@@ -163,13 +170,16 @@ public class AuthServiceImpl implements AuthService {
 		validateRequiredText(registerRequestDTO.getPhone(), "手机号不能为空");
 		validateRequiredText(registerRequestDTO.getIdentityCard(), "身份证号不能为空");
 		validateRequiredText(registerRequestDTO.getEmail(), "邮箱不能为空");
-		validateUserType(registerRequestDTO.getUserType());
 
 		if (normalizeText(registerRequestDTO.getUsername()).length() < 4) {
 			throw new BusinessException("用户名长度不能少于 4 位");
 		}
 		if (registerRequestDTO.getPassword().length() < 6) {
 			throw new BusinessException("密码长度不能少于 6 位");
+		}
+		if (StringUtils.hasText(registerRequestDTO.getMajor())
+			&& normalizeText(registerRequestDTO.getMajor()).length() > 50) {
+			throw new BusinessException("专业长度不能超过 50 位");
 		}
 		if (!PHONE_PATTERN.matcher(normalizeText(registerRequestDTO.getPhone())).matches()) {
 			throw new BusinessException("手机号格式不正确");
