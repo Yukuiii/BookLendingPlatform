@@ -1,8 +1,8 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { pageMyBorrowRecords } from '../api/borrow'
+import { pageMyBorrowRecords, returnBorrowBook } from '../api/borrow'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -96,6 +96,39 @@ function handleSizeChange(size) {
 }
 
 /**
+ * 处理归还图书操作。
+ *
+ * @param {object} record 借阅记录对象
+ */
+async function handleReturn(record) {
+  const borrowId = record?.borrowId
+  if (!borrowId) {
+    ElMessage.warning('借阅记录不完整，暂无法归还')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(`确认归还《${record.bookName || '当前图书'}》吗？`, '归还确认', {
+      type: 'warning',
+      confirmButtonText: '确认归还',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    const result = await returnBorrowBook(borrowId)
+    const returnDate = formatDateTime(result?.returnDate)
+    const overdueDays = Number(result?.overdueDays || 0)
+    ElMessage.success(overdueDays > 0 ? `归还成功，归还时间：${returnDate}，超期 ${overdueDays} 天` : `归还成功，归还时间：${returnDate}`)
+    await loadBorrowRecords()
+  } catch (error) {
+    ElMessage.error(error.message || '归还失败，请稍后重试')
+  }
+}
+
+/**
  * 生成图书封面占位文本。
  *
  * @param {object} record 借阅记录对象
@@ -141,6 +174,16 @@ function resolveBorrowStatusType(status) {
     return 'danger'
   }
   return 'warning'
+}
+
+/**
+ * 判断当前记录是否允许归还。
+ *
+ * @param {number} status 借阅状态
+ * @returns {boolean} 是否允许归还
+ */
+function canReturnBook(status) {
+  return status === 1 || status === 3
 }
 </script>
 
@@ -208,6 +251,10 @@ function resolveBorrowStatusType(status) {
         <template #default="{ row }">{{ formatDateTime(row.dueDate) }}</template>
       </el-table-column>
 
+      <el-table-column label="归还时间" width="180">
+        <template #default="{ row }">{{ formatDateTime(row.returnDate) }}</template>
+      </el-table-column>
+
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
           <el-tag size="small" effect="light" :type="resolveBorrowStatusType(row.status)">
@@ -220,8 +267,19 @@ function resolveBorrowStatusType(status) {
         <template #default="{ row }">{{ row.renewCount ?? 0 }}</template>
       </el-table-column>
 
+      <el-table-column label="超期" width="90" align="center">
+        <template #default="{ row }">{{ row.overdueDays > 0 ? `${row.overdueDays}天` : '--' }}</template>
+      </el-table-column>
+
       <el-table-column label="罚款" width="90" align="center">
         <template #default="{ row }">{{ row.fineAmount ?? 0 }}</template>
+      </el-table-column>
+
+      <el-table-column label="操作" width="120" align="center" fixed="right">
+        <template #default="{ row }">
+          <el-button v-if="canReturnBook(row.status)" type="primary" link @click="handleReturn(row)">立即归还</el-button>
+          <span v-else class="borrow-action-placeholder">--</span>
+        </template>
       </el-table-column>
     </el-table>
   </el-card>

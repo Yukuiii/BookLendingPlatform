@@ -6,9 +6,11 @@ import com.example.backend.service.BorrowService;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
+import com.example.backend.vo.ReturnBookVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -41,6 +43,21 @@ public class BorrowRecordController {
 	}
 
 	/**
+	 * 归还图书。
+	 *
+	 * @param userId 当前用户ID
+	 * @param borrowId 借阅记录ID
+	 * @return 归还结果
+	 */
+	@PostMapping("/{borrowId}/return")
+	public ReturnBookVO returnBook(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@PathVariable Long borrowId
+	) {
+		return borrowService.returnBook(userId, borrowId);
+	}
+
+	/**
 	 * 分页查询我的借阅记录。
 	 *
 	 * @param userId 当前用户ID
@@ -55,4 +72,3 @@ public class BorrowRecordController {
 		return borrowService.pageMyBorrowRecords(userId, queryDTO);
 	}
 }
-

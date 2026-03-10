@@ -847,6 +847,11 @@ select {
   text-overflow: ellipsis;
 }
 
+.borrow-action-placeholder {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+
 .book-detail-head {
   display: flex;
   gap: 16px;

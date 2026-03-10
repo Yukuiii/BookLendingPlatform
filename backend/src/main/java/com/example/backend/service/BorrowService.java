@@ -5,6 +5,7 @@ import com.example.backend.dto.BorrowRecordPageQueryDTO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
+import com.example.backend.vo.ReturnBookVO;
 
 /**
  * 借阅服务接口。
@@ -21,6 +22,15 @@ public interface BorrowService {
 	BorrowResultVO borrowBook(Long userId, BorrowBookRequestDTO requestDTO);
 
 	/**
+	 * 归还图书。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @return 归还结果
+	 */
+	ReturnBookVO returnBook(Long userId, Long borrowId);
+
+	/**
 	 * 分页查询我的借阅记录。
 	 *
 	 * @param userId 用户ID
@@ -29,4 +39,3 @@ public interface BorrowService {
 	 */
 	PageResult<BorrowRecordPageVO> pageMyBorrowRecords(Long userId, BorrowRecordPageQueryDTO queryDTO);
 }
-

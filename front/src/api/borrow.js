@@ -16,6 +16,18 @@ export function borrowBook(bookId) {
 }
 
 /**
+ * 归还图书。
+ *
+ * @param {number|string} borrowId 借阅记录ID
+ * @returns {Promise<any>} 归还结果
+ */
+export function returnBorrowBook(borrowId) {
+  return request(`/borrow-records/${encodeURIComponent(borrowId)}/return`, {
+    method: 'POST',
+  })
+}
+
+/**
  * 分页查询我的借阅记录。
  *
  * @param {{current?: number, size?: number, status?: number | null}} params 查询参数
@@ -38,4 +50,3 @@ export function pageMyBorrowRecords(params = {}) {
     method: 'GET',
   })
 }
-

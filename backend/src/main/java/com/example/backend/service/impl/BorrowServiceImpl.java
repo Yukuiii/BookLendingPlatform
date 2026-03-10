@@ -20,12 +20,14 @@ import com.example.backend.service.BorrowService;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
+import com.example.backend.vo.ReturnBookVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,6 +66,11 @@ public class BorrowServiceImpl implements BorrowService {
 	private static final int DEFAULT_MAX_BORROW_COUNT = 5;
 
 	/**
+	 * 用户正常状态。
+	 */
+	private static final int NORMAL_USER_STATUS = 1;
+
+	/**
 	 * 图书上架状态。
 	 */
 	private static final int BOOK_ON_SHELF_STATUS = 1;
@@ -72,6 +79,11 @@ public class BorrowServiceImpl implements BorrowService {
 	 * 借阅中状态。
 	 */
 	private static final int BORROWING_STATUS = 1;
+
+	/**
+	 * 已归还状态。
+	 */
+	private static final int RETURNED_STATUS = 2;
 
 	/**
 	 * 超期状态。
@@ -102,13 +114,8 @@ public class BorrowServiceImpl implements BorrowService {
 			throw new BusinessException("图书ID不合法");
 		}
 
-		User user = userMapper.selectById(userId);
-		if (user == null) {
-			throw new BusinessException("用户不存在");
-		}
-		if (!Objects.equals(user.getStatus(), 1)) {
-			throw new BusinessException("当前账号已被禁用，无法借阅");
-		}
+		User user = requireAvailableUser(userId);
+		refreshExpiredBorrowRecords(userId);
 
 		int maxBorrowCount = user.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : user.getMaxBorrowCount();
 		Long activeBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
@@ -173,6 +180,69 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
+	 * 归还图书。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @return 归还结果
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public ReturnBookVO returnBook(Long userId, Long borrowId) {
+		if (userId == null || userId <= 0) {
+			throw new BusinessException("请先登录再归还图书");
+		}
+		if (borrowId == null || borrowId <= 0) {
+			throw new BusinessException("借阅记录ID不合法");
+		}
+
+		requireAvailableUser(userId);
+		BorrowRecord borrowRecord = borrowRecordMapper.selectById(borrowId);
+		if (borrowRecord == null) {
+			throw new BusinessException("借阅记录不存在");
+		}
+		if (!Objects.equals(borrowRecord.getUserId(), userId)) {
+			throw new BusinessException("无权归还该借阅记录");
+		}
+		if (Objects.equals(borrowRecord.getStatus(), RETURNED_STATUS)) {
+			throw new BusinessException("该图书已归还，请勿重复操作");
+		}
+		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)
+			&& !Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
+			throw new BusinessException("当前借阅记录状态不支持归还");
+		}
+
+		Book book = bookMapper.selectById(borrowRecord.getBookId());
+		if (book == null) {
+			throw new BusinessException("关联图书不存在，暂无法归还");
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), now);
+
+		// 先回补库存，再更新借阅记录，确保归还成功后图书立即恢复可借数量。
+		bookMapper.update(null, new LambdaUpdateWrapper<Book>()
+			.eq(Book::getBookId, borrowRecord.getBookId())
+			.setSql("available_count = IFNULL(available_count, 0) + 1"));
+
+		borrowRecord.setReturnDate(now);
+		borrowRecord.setStatus(RETURNED_STATUS);
+		borrowRecord.setOverdueDays(overdueDays);
+		borrowRecord.setFineAmount(normalizeFineAmount(borrowRecord.getFineAmount()));
+		borrowRecord.setUpdateTime(now);
+		borrowRecordMapper.updateById(borrowRecord);
+
+		return new ReturnBookVO(
+			borrowRecord.getBorrowId(),
+			borrowRecord.getBookId(),
+			borrowRecord.getReturnDate(),
+			borrowRecord.getOverdueDays(),
+			borrowRecord.getFineAmount(),
+			borrowRecord.getStatus()
+		);
+	}
+
+	/**
 	 * 分页查询我的借阅记录。
 	 *
 	 * @param userId 用户ID
@@ -184,6 +254,8 @@ public class BorrowServiceImpl implements BorrowService {
 		if (userId == null || userId <= 0) {
 			throw new BusinessException("请先登录后查看借阅记录");
 		}
+
+		refreshExpiredBorrowRecords(userId);
 
 		long current = normalizeCurrent(queryDTO);
 		long size = normalizeSize(queryDTO);
@@ -214,6 +286,82 @@ public class BorrowServiceImpl implements BorrowService {
 			resultPage.getSize(),
 			resultPage.getPages()
 		);
+	}
+
+	/**
+	 * 校验并返回可用用户。
+	 *
+	 * @param userId 用户ID
+	 * @return 用户实体
+	 */
+	private User requireAvailableUser(Long userId) {
+		User user = userMapper.selectById(userId);
+		if (user == null) {
+			throw new BusinessException("用户不存在");
+		}
+		if (!Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+			throw new BusinessException("当前账号已被禁用，无法执行该操作");
+		}
+		return user;
+	}
+
+	/**
+	 * 刷新用户已超期但仍未归还的借阅记录状态。
+	 *
+	 * @param userId 用户ID
+	 */
+	private void refreshExpiredBorrowRecords(Long userId) {
+		List<BorrowRecord> activeRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, userId)
+			.eq(BorrowRecord::getStatus, BORROWING_STATUS));
+		if (activeRecords == null || activeRecords.isEmpty()) {
+			return;
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		for (BorrowRecord record : activeRecords) {
+			if (record == null || record.getBorrowId() == null) {
+				continue;
+			}
+
+			int overdueDays = calculateOverdueDays(record.getDueDate(), now);
+			if (overdueDays <= 0) {
+				continue;
+			}
+
+			// 只同步真正已超时的记录，避免前端筛选“超期”时漏数据。
+			record.setStatus(OVERDUE_STATUS);
+			record.setOverdueDays(overdueDays);
+			record.setFineAmount(normalizeFineAmount(record.getFineAmount()));
+			record.setUpdateTime(now);
+			borrowRecordMapper.updateById(record);
+		}
+	}
+
+	/**
+	 * 计算超期天数。
+	 *
+	 * @param dueDate 应还时间
+	 * @param currentTime 当前时间
+	 * @return 超期天数
+	 */
+	private int calculateOverdueDays(LocalDateTime dueDate, LocalDateTime currentTime) {
+		if (dueDate == null || currentTime == null || !currentTime.isAfter(dueDate)) {
+			return 0;
+		}
+
+		long days = ChronoUnit.DAYS.between(dueDate.toLocalDate(), currentTime.toLocalDate());
+		return (int) Math.max(1L, days);
+	}
+
+	/**
+	 * 归一化罚款金额。
+	 *
+	 * @param fineAmount 原罚款金额
+	 * @return 归一化后的罚款金额
+	 */
+	private BigDecimal normalizeFineAmount(BigDecimal fineAmount) {
+		return fineAmount == null ? BigDecimal.ZERO : fineAmount;
 	}
 
 	/**
@@ -400,4 +548,3 @@ public class BorrowServiceImpl implements BorrowService {
 		return queryDTO.getSize();
 	}
 }
-
