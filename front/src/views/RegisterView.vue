@@ -1,9 +1,13 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ChevronDown, Eye, EyeOff, IdCard, LibraryBig, LockKeyhole, Mail, Phone, UserRound } from 'lucide-vue-next'
 
+import { register } from '../api/auth'
 import AuthFooter from '../components/auth/AuthFooter.vue'
 import { USER_TYPE_OPTIONS } from '../constants/auth'
+
+const router = useRouter()
 
 const registerForm = reactive({
   username: '',
@@ -17,6 +21,9 @@ const registerForm = reactive({
 })
 
 const passwordVisible = ref(false)
+const submitting = ref(false)
+const submitMessage = ref('')
+const submitError = ref(false)
 
 /**
  * 切换注册密码框的明文显示状态。
@@ -26,10 +33,82 @@ function togglePasswordVisible() {
 }
 
 /**
+ * 校验注册表单。
+ *
+ * @returns {string} 校验结果消息
+ */
+function validateRegisterForm() {
+  if (!registerForm.username.trim()) {
+    return '请输入用户名'
+  }
+  if (!registerForm.realName.trim()) {
+    return '请输入真实姓名'
+  }
+  if (registerForm.password.trim().length < 6) {
+    return '密码长度不能少于 6 位'
+  }
+  if (!/^1\d{10}$/.test(registerForm.phone.trim())) {
+    return '请输入正确的手机号'
+  }
+  if (!/^(\d{15}|\d{17}[\dXx])$/.test(registerForm.identityCard.trim())) {
+    return '请输入正确的身份证号'
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerForm.email.trim())) {
+    return '请输入正确的邮箱地址'
+  }
+  if (!registerForm.agree) {
+    return '请先阅读并同意服务条款与隐私协议'
+  }
+  return ''
+}
+
+/**
+ * 更新提交反馈消息。
+ *
+ * @param {string} message 提示文案
+ * @param {boolean} isError 是否为错误提示
+ */
+function updateSubmitMessage(message, isError) {
+  submitMessage.value = message
+  submitError.value = isError
+}
+
+/**
  * 处理注册表单提交。
  */
-function handleRegisterSubmit() {
-  console.info('注册表单已提交：', { ...registerForm })
+async function handleRegisterSubmit() {
+  const validationMessage = validateRegisterForm()
+  if (validationMessage) {
+    updateSubmitMessage(validationMessage, true)
+    return
+  }
+
+  submitting.value = true
+  updateSubmitMessage('', false)
+
+  try {
+    const response = await register({
+      username: registerForm.username.trim(),
+      realName: registerForm.realName.trim(),
+      password: registerForm.password,
+      phone: registerForm.phone.trim(),
+      identityCard: registerForm.identityCard.trim(),
+      email: registerForm.email.trim(),
+      userType: Number(registerForm.userType),
+    })
+    updateSubmitMessage(response.message || '注册成功', false)
+    await router.push({
+      name: 'login',
+      query: {
+        username: registerForm.username.trim(),
+        registered: '1',
+      },
+    })
+  } catch (error) {
+    updateSubmitMessage(error.message || '注册失败，请稍后重试', true)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -142,7 +221,13 @@ function handleRegisterSubmit() {
           </span>
         </label>
 
-        <button class="submit-button" type="submit">立即注册</button>
+        <p v-if="submitMessage" :class="['form-message', submitError ? 'form-message--error' : 'form-message--success']">
+          {{ submitMessage }}
+        </p>
+
+        <button class="submit-button" type="submit" :disabled="submitting">
+          {{ submitting ? '注册中...' : '立即注册' }}
+        </button>
 
         <p class="switch-text">
           已有账号？

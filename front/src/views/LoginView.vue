@@ -1,17 +1,26 @@
 <script setup>
 import { reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Eye, EyeOff, LibraryBig, LockKeyhole, UserRound } from 'lucide-vue-next'
 
+import { login } from '../api/auth'
 import AuthFooter from '../components/auth/AuthFooter.vue'
 import { USER_TYPE_OPTIONS } from '../constants/auth'
+import { setCurrentUser } from '../utils/auth'
+
+const router = useRouter()
+const route = useRoute()
 
 const loginForm = reactive({
-  username: '',
+  username: typeof route.query.username === 'string' ? route.query.username : '',
   password: '',
   userType: '1',
 })
 
 const passwordVisible = ref(false)
+const submitting = ref(false)
+const submitMessage = ref(typeof route.query.registered === 'string' ? '注册成功，请使用新账号登录。' : '')
+const submitError = ref(false)
 
 /**
  * 切换登录密码框的明文显示状态。
@@ -21,10 +30,58 @@ function togglePasswordVisible() {
 }
 
 /**
+ * 校验登录表单。
+ *
+ * @returns {string} 校验结果消息
+ */
+function validateLoginForm() {
+  if (!loginForm.username.trim()) {
+    return '请输入用户名'
+  }
+  if (!loginForm.password) {
+    return '请输入密码'
+  }
+  return ''
+}
+
+/**
+ * 更新提交反馈消息。
+ *
+ * @param {string} message 提示文案
+ * @param {boolean} isError 是否为错误提示
+ */
+function updateSubmitMessage(message, isError) {
+  submitMessage.value = message
+  submitError.value = isError
+}
+
+/**
  * 处理登录表单提交。
  */
-function handleLoginSubmit() {
-  console.info('登录表单已提交：', { ...loginForm })
+async function handleLoginSubmit() {
+  const validationMessage = validateLoginForm()
+  if (validationMessage) {
+    updateSubmitMessage(validationMessage, true)
+    return
+  }
+
+  submitting.value = true
+  updateSubmitMessage('', false)
+
+  try {
+    const response = await login({
+      username: loginForm.username.trim(),
+      password: loginForm.password,
+      userType: Number(loginForm.userType),
+    })
+    setCurrentUser(response.data)
+    updateSubmitMessage(response.message || '登录成功', false)
+    await router.push({ name: 'home' })
+  } catch (error) {
+    updateSubmitMessage(error.message || '登录失败，请稍后重试', true)
+  } finally {
+    submitting.value = false
+  }
 }
 </script>
 
@@ -81,7 +138,13 @@ function handleLoginSubmit() {
           </div>
         </div>
 
-        <button class="submit-button" type="submit">登录系统</button>
+        <p v-if="submitMessage" :class="['form-message', submitError ? 'form-message--error' : 'form-message--success']">
+          {{ submitMessage }}
+        </p>
+
+        <button class="submit-button" type="submit" :disabled="submitting">
+          {{ submitting ? '登录中...' : '登录系统' }}
+        </button>
 
         <p class="switch-text">
           还没有账号？
