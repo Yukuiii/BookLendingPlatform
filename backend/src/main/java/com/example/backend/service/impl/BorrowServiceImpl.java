@@ -98,6 +98,11 @@ public class BorrowServiceImpl implements BorrowService {
 	 */
 	private static final int OVERDUE_STATUS = 3;
 
+	/**
+	 * 审核中状态。
+	 */
+	private static final int PENDING_REVIEW_STATUS = 4;
+
 	private final BorrowRecordMapper borrowRecordMapper;
 	private final BookMapper bookMapper;
 	private final UserMapper userMapper;
@@ -106,7 +111,7 @@ public class BorrowServiceImpl implements BorrowService {
 	private final CommentMapper commentMapper;
 
 	/**
-	 * 立即借阅图书。
+	 * 提交借阅申请。
 	 *
 	 * @param userId 用户ID
 	 * @param requestDTO 借阅请求参数
@@ -129,9 +134,9 @@ public class BorrowServiceImpl implements BorrowService {
 		int maxBorrowCount = user.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : user.getMaxBorrowCount();
 		Long activeBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
 			.eq(BorrowRecord::getUserId, userId)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS));
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS));
 		if (activeBorrowCount != null && activeBorrowCount >= maxBorrowCount) {
-			throw new BusinessException(String.format("已达到最大借阅数量（%d），请先归还部分图书", maxBorrowCount));
+			throw new BusinessException(String.format("已达到最大借阅数量（%d），请先完成现有借阅或等待审核结果", maxBorrowCount));
 		}
 
 		Book book = bookMapper.selectById(bookId);
@@ -149,20 +154,9 @@ public class BorrowServiceImpl implements BorrowService {
 		Long alreadyBorrowed = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
 			.eq(BorrowRecord::getUserId, userId)
 			.eq(BorrowRecord::getBookId, bookId)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS));
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS));
 		if (alreadyBorrowed != null && alreadyBorrowed > 0) {
-			throw new BusinessException("你已借阅过该图书，请先归还后再借阅");
-		}
-
-		// 使用数据库原子自减，避免并发下出现库存被借成负数。
-		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
-			.eq(Book::getBookId, bookId)
-			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
-			.gt(Book::getAvailableCount, 0)
-			.setSql("available_count = available_count - 1")
-			.setSql("borrow_count = IFNULL(borrow_count, 0) + 1"));
-		if (updated <= 0) {
-			throw new BusinessException("图书库存不足，借阅失败");
+			throw new BusinessException("你已提交过该图书的借阅申请或仍有未归还记录");
 		}
 
 		LocalDateTime now = LocalDateTime.now();
@@ -170,10 +164,10 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setUserId(userId);
 		borrowRecord.setBookId(bookId);
 		borrowRecord.setBorrowDate(now);
-		borrowRecord.setDueDate(now.plusDays(DEFAULT_BORROW_DAYS));
+		borrowRecord.setDueDate(null);
 		borrowRecord.setReturnDate(null);
 		borrowRecord.setRenewCount(0);
-		borrowRecord.setStatus(BORROWING_STATUS);
+		borrowRecord.setStatus(PENDING_REVIEW_STATUS);
 		borrowRecord.setOverdueDays(0);
 		borrowRecord.setFineAmount(BigDecimal.ZERO);
 		borrowRecord.setCreateTime(now);
@@ -184,7 +178,86 @@ public class BorrowServiceImpl implements BorrowService {
 			borrowRecord.getBorrowId(),
 			bookId,
 			borrowRecord.getBorrowDate(),
-			borrowRecord.getDueDate()
+			borrowRecord.getDueDate(),
+			borrowRecord.getStatus()
+		);
+	}
+
+	/**
+	 * 管理端审核通过借阅申请。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 审核结果
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public BorrowResultVO approveBorrowRecord(Long adminUserId, Long borrowId) {
+		requireAdminUser(adminUserId);
+		if (borrowId == null || borrowId <= 0) {
+			throw new BusinessException("借阅记录ID不合法");
+		}
+
+		BorrowRecord borrowRecord = borrowRecordMapper.selectById(borrowId);
+		if (borrowRecord == null) {
+			throw new BusinessException("借阅记录不存在");
+		}
+		if (!Objects.equals(borrowRecord.getStatus(), PENDING_REVIEW_STATUS)) {
+			throw new BusinessException("当前借阅记录不在审核中");
+		}
+
+		User borrower = requireAvailableUser(borrowRecord.getUserId());
+		int maxBorrowCount = borrower.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : borrower.getMaxBorrowCount();
+		Long activeBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, borrower.getNameId())
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS));
+		if (activeBorrowCount != null && activeBorrowCount >= maxBorrowCount) {
+			throw new BusinessException(String.format("该用户已达到最大借阅数量（%d）", maxBorrowCount));
+		}
+
+		Long duplicateBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, borrower.getNameId())
+			.eq(BorrowRecord::getBookId, borrowRecord.getBookId())
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS)
+			.ne(BorrowRecord::getBorrowId, borrowRecord.getBorrowId()));
+		if (duplicateBorrowCount != null && duplicateBorrowCount > 0) {
+			throw new BusinessException("该用户已借阅此图书，无需重复审核通过");
+		}
+
+		Book book = bookMapper.selectById(borrowRecord.getBookId());
+		if (book == null) {
+			throw new BusinessException("图书不存在");
+		}
+		if (!Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS)) {
+			throw new BusinessException("图书已下架，暂不可审核通过");
+		}
+
+		// 审核通过时再原子扣减库存，确保最终借阅成功的记录才占用馆藏。
+		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
+			.eq(Book::getBookId, borrowRecord.getBookId())
+			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.gt(Book::getAvailableCount, 0)
+			.setSql("available_count = available_count - 1")
+			.setSql("borrow_count = IFNULL(borrow_count, 0) + 1"));
+		if (updated <= 0) {
+			throw new BusinessException("图书库存不足，暂不可审核通过");
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		borrowRecord.setBorrowDate(now);
+		borrowRecord.setDueDate(now.plusDays(DEFAULT_BORROW_DAYS));
+		borrowRecord.setStatus(BORROWING_STATUS);
+		borrowRecord.setOverdueDays(0);
+		borrowRecord.setFineAmount(BigDecimal.ZERO);
+		borrowRecord.setUpdateTime(now);
+		borrowRecordMapper.updateById(borrowRecord);
+
+		return new BorrowResultVO(
+			borrowRecord.getBorrowId(),
+			borrowRecord.getBookId(),
+			borrowRecord.getBorrowDate(),
+			borrowRecord.getDueDate(),
+			borrowRecord.getStatus()
 		);
 	}
 
@@ -224,6 +297,15 @@ public class BorrowServiceImpl implements BorrowService {
 			throw new BusinessException("借阅记录ID不合法");
 		}
 		return executeReturnBook(adminUserId, borrowId, true);
+	}
+
+	/**
+	 * 刷新全部超期未归还记录状态。
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void refreshAllExpiredBorrowRecords() {
+		refreshExpiredBorrowRecords(null);
 	}
 
 	/**
@@ -364,9 +446,13 @@ public class BorrowServiceImpl implements BorrowService {
 	 * @param userId 用户ID
 	 */
 	private void refreshExpiredBorrowRecords(Long userId) {
-		List<BorrowRecord> activeRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getUserId, userId)
-			.eq(BorrowRecord::getStatus, BORROWING_STATUS));
+		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getStatus, BORROWING_STATUS);
+		if (userId != null && userId > 0) {
+			queryWrapper.eq(BorrowRecord::getUserId, userId);
+		}
+
+		List<BorrowRecord> activeRecords = borrowRecordMapper.selectList(queryWrapper);
 		if (activeRecords == null || activeRecords.isEmpty()) {
 			return;
 		}

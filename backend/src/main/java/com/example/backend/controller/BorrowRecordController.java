@@ -28,7 +28,7 @@ public class BorrowRecordController {
 	private final BorrowService borrowService;
 
 	/**
-	 * 立即借阅图书。
+	 * 提交借阅申请。
 	 *
 	 * @param userId 当前用户ID
 	 * @param requestDTO 借阅请求参数

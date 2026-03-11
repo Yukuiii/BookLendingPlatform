@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.dto.AdminBorrowRecordPageQueryDTO;
 import com.example.backend.service.AdminService;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
+import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.ReturnBookVO;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +41,21 @@ public class AdminBorrowRecordController {
 	}
 
 	/**
+	 * 管理端审核通过借阅申请。
+	 *
+	 * @param userId 当前管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 审核结果
+	 */
+	@PostMapping("/{borrowId}/approve")
+	public BorrowResultVO approveAdminBorrowRecord(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@PathVariable Long borrowId
+	) {
+		return adminService.approveAdminBorrowRecord(userId, borrowId);
+	}
+
+	/**
 	 * 管理端归还借阅记录。
 	 *
 	 * @param userId 当前管理员ID
@@ -54,4 +70,3 @@ public class AdminBorrowRecordController {
 		return adminService.returnAdminBorrowRecord(userId, borrowId);
 	}
 }
-

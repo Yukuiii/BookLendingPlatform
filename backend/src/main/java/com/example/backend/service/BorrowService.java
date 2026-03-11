@@ -13,13 +13,22 @@ import com.example.backend.vo.ReturnBookVO;
 public interface BorrowService {
 
 	/**
-	 * 立即借阅图书。
+	 * 提交借阅申请。
 	 *
 	 * @param userId 用户ID
 	 * @param requestDTO 借阅请求参数
 	 * @return 借阅结果
 	 */
 	BorrowResultVO borrowBook(Long userId, BorrowBookRequestDTO requestDTO);
+
+	/**
+	 * 管理端审核通过借阅申请。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 审核结果
+	 */
+	BorrowResultVO approveBorrowRecord(Long adminUserId, Long borrowId);
 
 	/**
 	 * 归还图书。
@@ -38,6 +47,11 @@ public interface BorrowService {
 	 * @return 归还结果
 	 */
 	ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId);
+
+	/**
+	 * 刷新全部超期未归还记录状态。
+	 */
+	void refreshAllExpiredBorrowRecords();
 
 	/**
 	 * 分页查询我的借阅记录。

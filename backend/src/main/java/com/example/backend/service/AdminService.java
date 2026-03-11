@@ -10,6 +10,7 @@ import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
+import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.ReturnBookVO;
 
@@ -94,6 +95,15 @@ public interface AdminService {
 	PageResult<AdminBorrowRecordPageVO> pageAdminBorrowRecords(Long adminUserId, AdminBorrowRecordPageQueryDTO queryDTO);
 
 	/**
+	 * 管理端审核通过借阅申请。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 审核结果
+	 */
+	BorrowResultVO approveAdminBorrowRecord(Long adminUserId, Long borrowId);
+
+	/**
 	 * 管理端归还图书。
 	 *
 	 * @param adminUserId 管理员ID
@@ -102,4 +112,3 @@ public interface AdminService {
 	 */
 	ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId);
 }
-

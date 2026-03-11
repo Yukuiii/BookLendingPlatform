@@ -120,6 +120,18 @@ export function pageAdminBorrowRecords(params = {}) {
 }
 
 /**
+ * 管理端审核通过借阅记录。
+ *
+ * @param {number|string} borrowId 借阅记录ID
+ * @returns {Promise<any>} 审核结果
+ */
+export function approveAdminBorrowRecord(borrowId) {
+  return request(`/admin/borrow-records/${encodeURIComponent(borrowId)}/approve`, {
+    method: 'POST',
+  })
+}
+
+/**
  * 管理端归还借阅记录。
  *
  * @param {number|string} borrowId 借阅记录ID
@@ -155,4 +167,3 @@ function buildGetRequest(path, params = {}) {
     method: 'GET',
   })
 }
-

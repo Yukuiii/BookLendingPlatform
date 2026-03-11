@@ -2,7 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { pageAdminBorrowRecords, returnAdminBorrowRecord } from '../../api/admin'
+import { approveAdminBorrowRecord, pageAdminBorrowRecords, returnAdminBorrowRecord } from '../../api/admin'
 import { formatDateTime } from '../../utils/book'
 
 /**
@@ -25,6 +25,7 @@ const statusOptions = [
   { label: '借阅中', value: 1 },
   { label: '已归还', value: 2 },
   { label: '超期', value: 3 },
+  { label: '审核中', value: 4 },
 ]
 
 /**
@@ -101,6 +102,32 @@ async function handleReturn(row) {
 }
 
 /**
+ * 审核通过借阅申请。
+ *
+ * @param {object} row 借阅记录
+ */
+async function handleApprove(row) {
+  try {
+    await ElMessageBox.confirm(`确认通过《${row.bookName || '当前图书'}》的借阅申请吗？`, '借阅审核', {
+      type: 'warning',
+      confirmButtonText: '审核通过',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    const result = await approveAdminBorrowRecord(row.borrowId)
+    const dueDate = result?.dueDate ? formatDateTime(result.dueDate) : '暂无'
+    await loadBorrowRecords()
+    ElMessage.success(`审核通过成功，应还日期：${dueDate}`)
+  } catch (error) {
+    ElMessage.error(error.message || '审核失败，请稍后重试')
+  }
+}
+
+/**
  * 切换分页页码。
  *
  * @param {number} page 页码
@@ -137,6 +164,9 @@ function resolveBorrowStatusLabel(status) {
   if (status === 3) {
     return '超期'
   }
+  if (status === 4) {
+    return '审核中'
+  }
   return '未知'
 }
 
@@ -156,6 +186,9 @@ function resolveBorrowStatusType(status) {
   if (status === 3) {
     return 'danger'
   }
+  if (status === 4) {
+    return 'warning'
+  }
   return 'warning'
 }
 </script>
@@ -166,7 +199,7 @@ function resolveBorrowStatusType(status) {
       <div class="home-section-header">
         <div>
           <strong>借阅管理</strong>
-          <p>查看全部借阅记录，并对借阅中或超期记录执行管理员归还</p>
+          <p>查看全部借阅记录，并对审核中的申请执行通过审核，对借阅中或超期记录执行归还</p>
         </div>
         <el-button type="primary" plain @click="handleSearch">刷新列表</el-button>
       </div>
@@ -197,7 +230,7 @@ function resolveBorrowStatusType(status) {
       <el-table-column prop="realName" label="真实姓名" min-width="120" />
       <el-table-column prop="bookName" label="书名" min-width="180" />
       <el-table-column prop="isbn" label="ISBN" min-width="150" />
-      <el-table-column label="借阅时间" width="180">
+      <el-table-column label="申请/借阅时间" width="180">
         <template #default="{ row }">{{ formatDateTime(row.borrowDate) }}</template>
       </el-table-column>
       <el-table-column label="应还时间" width="180">
@@ -217,9 +250,10 @@ function resolveBorrowStatusType(status) {
       <el-table-column label="罚款" width="90" align="center">
         <template #default="{ row }">{{ row.fineAmount ?? 0 }}</template>
       </el-table-column>
-      <el-table-column label="操作" width="120" align="center" fixed="right">
+      <el-table-column label="操作" width="132" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.status === 1 || row.status === 3" type="primary" link @click="handleReturn(row)">归还</el-button>
+          <el-button v-if="row.status === 4" type="warning" link @click="handleApprove(row)">审核通过</el-button>
+          <el-button v-else-if="row.status === 1 || row.status === 3" type="primary" link @click="handleReturn(row)">归还</el-button>
           <span v-else class="borrow-action-placeholder">--</span>
         </template>
       </el-table-column>
@@ -239,4 +273,3 @@ function resolveBorrowStatusType(status) {
     />
   </div>
 </template>
-

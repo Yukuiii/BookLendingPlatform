@@ -143,7 +143,7 @@ public class UserServiceImpl implements UserService {
 	 */
 	@Override
 	public PageResult<AdminUserPageVO> pageAdminUsers(Long adminUserId, AdminUserPageQueryDTO queryDTO) {
-		requireAdminUser(adminUserId);
+		requireSystemAdminUser(adminUserId);
 
 		Page<User> page = new Page<>(normalizeCurrent(queryDTO), normalizeSize(queryDTO));
 		LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
@@ -186,7 +186,7 @@ public class UserServiceImpl implements UserService {
 	 */
 	@Override
 	public AdminUserPageVO updateAdminUser(Long adminUserId, Long targetUserId, AdminUserUpdateDTO requestDTO) {
-		User adminUser = requireAdminUser(adminUserId);
+		User adminUser = requireSystemAdminUser(adminUserId);
 		User targetUser = requireExistingUser(targetUserId);
 		validateAdminUserUpdateRequest(requestDTO);
 
@@ -405,6 +405,20 @@ public class UserServiceImpl implements UserService {
 	}
 
 	/**
+	 * 校验系统管理员身份。
+	 *
+	 * @param userId 用户ID
+	 * @return 系统管理员实体
+	 */
+	private User requireSystemAdminUser(Long userId) {
+		User user = requireActiveUser(userId);
+		if (!Objects.equals(user.getUserType(), 3)) {
+			throw new BusinessException("当前用户无系统管理员权限");
+		}
+		return user;
+	}
+
+	/**
 	 * 构建个人信息返回对象。
 	 *
 	 * @param user 用户实体
@@ -475,4 +489,3 @@ public class UserServiceImpl implements UserService {
 		return queryDTO.getSize();
 	}
 }
-

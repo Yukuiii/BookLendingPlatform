@@ -18,14 +18,6 @@ const router = useRouter()
 const route = useRoute()
 const currentUser = ref(getCurrentUser())
 
-const menuItems = [
-  { key: 'admin-users', label: '用户管理', icon: User },
-  { key: 'admin-books', label: '图书管理', icon: Management },
-  { key: 'admin-locations', label: '位置管理', icon: MapLocation },
-  { key: 'admin-borrows', label: '借阅管理', icon: Reading },
-  { key: 'admin-profile', label: '个人信息', icon: User },
-]
-
 let disposeCurrentUserListener = null
 
 /**
@@ -45,7 +37,7 @@ onUnmounted(() => {
 })
 
 const activeMenu = computed(() => {
-  return typeof route.name === 'string' ? route.name : 'admin-users'
+  return typeof route.name === 'string' ? route.name : resolveAdminHomeRouteName()
 })
 
 const pageTitle = computed(() => {
@@ -60,6 +52,28 @@ const pageSubtitle = computed(() => {
 const userTypeLabel = computed(() => {
   return USER_TYPE_OPTIONS.find((item) => item.value === String(currentUser.value?.userType))?.label || '未知角色'
 })
+
+const menuItems = computed(() => {
+  const items = [
+    { key: 'admin-books', label: '图书管理', icon: Management },
+    { key: 'admin-locations', label: '图书位置管理', icon: MapLocation },
+    { key: 'admin-borrows', label: '借阅管理', icon: Reading },
+  ]
+
+  if (Number(currentUser.value?.userType) === 3) {
+    return [{ key: 'admin-users', label: '用户管理', icon: User }, ...items]
+  }
+  return items
+})
+
+/**
+ * 解析管理端默认首页。
+ *
+ * @returns {string} 路由名称
+ */
+function resolveAdminHomeRouteName() {
+  return Number(currentUser.value?.userType) === 3 ? 'admin-users' : 'admin-books'
+}
 
 /**
  * 处理左侧菜单点击并切换路由。
@@ -113,4 +127,3 @@ function handleLogout() {
     </el-container>
   </main>
 </template>
-

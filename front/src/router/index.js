@@ -28,6 +28,26 @@ function isAdminUser(currentUser) {
   return userType === 2 || userType === 3
 }
 
+/**
+ * 判断当前用户是否为系统管理员。
+ *
+ * @param {object|null} currentUser 当前用户
+ * @returns {boolean} 是否为系统管理员
+ */
+function isSystemAdminUser(currentUser) {
+  return Number(currentUser?.userType) === 3
+}
+
+/**
+ * 解析管理端默认首页。
+ *
+ * @param {object|null} currentUser 当前用户
+ * @returns {string} 默认首页路由名
+ */
+function resolveAdminHomeRouteName(currentUser) {
+  return isSystemAdminUser(currentUser) ? 'admin-users' : 'admin-books'
+}
+
 const routes = [
   {
     path: '/',
@@ -103,7 +123,9 @@ const routes = [
       requiresAuth: true,
       adminOnly: true,
     },
-    redirect: '/admin/users',
+    redirect: () => {
+      return { name: resolveAdminHomeRouteName(getCurrentUser()) }
+    },
     children: [
       {
         path: 'users',
@@ -111,6 +133,7 @@ const routes = [
         component: AdminUserManageView,
         meta: {
           title: '用户管理',
+          systemAdminOnly: true,
         },
       },
       {
@@ -181,13 +204,16 @@ router.beforeEach((to) => {
     return { name: 'login' }
   }
   if (to.meta.guestOnly && currentUser) {
-    return { name: isAdminUser(currentUser) ? 'admin-users' : 'books' }
+    return { name: isAdminUser(currentUser) ? resolveAdminHomeRouteName(currentUser) : 'books' }
   }
   if (to.meta.userOnly && currentUser && isAdminUser(currentUser)) {
-    return { name: 'admin-users' }
+    return { name: resolveAdminHomeRouteName(currentUser) }
   }
   if (to.meta.adminOnly && currentUser && !isAdminUser(currentUser)) {
     return { name: 'books' }
+  }
+  if (to.meta.systemAdminOnly && currentUser && !isSystemAdminUser(currentUser)) {
+    return { name: 'admin-books' }
   }
 
   return true

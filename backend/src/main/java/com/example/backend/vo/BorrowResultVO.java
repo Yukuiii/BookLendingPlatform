@@ -7,7 +7,7 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 立即借阅结果返回对象。
+ * 借阅结果返回对象。
  */
 @Data
 @NoArgsConstructor
@@ -25,7 +25,7 @@ public class BorrowResultVO {
 	private Long bookId;
 
 	/**
-	 * 借阅日期。
+	 * 申请/借阅时间。
 	 */
 	private LocalDateTime borrowDate;
 
@@ -33,5 +33,9 @@ public class BorrowResultVO {
 	 * 应还日期。
 	 */
 	private LocalDateTime dueDate;
-}
 
+	/**
+	 * 状态：1借阅中，4审核中。
+	 */
+	private Integer status;
+}

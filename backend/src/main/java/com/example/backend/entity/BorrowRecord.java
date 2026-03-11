@@ -56,7 +56,7 @@ public class BorrowRecord {
 	private Integer renewCount;
 
 	/**
-	 * 状态：1借阅中，2已归还，3超期。
+	 * 状态：1借阅中，2已归还，3超期，4审核中。
 	 */
 	private Integer status;
 

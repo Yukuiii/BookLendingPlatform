@@ -66,7 +66,7 @@ public class AdminBorrowRecordPageVO {
 	private LocalDateTime returnDate;
 
 	/**
-	 * 状态。
+	 * 状态：1借阅中，2已归还，3超期，4审核中。
 	 */
 	private Integer status;
 
@@ -80,4 +80,3 @@ public class AdminBorrowRecordPageVO {
 	 */
 	private BigDecimal fineAmount;
 }
-

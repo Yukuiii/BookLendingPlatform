@@ -146,7 +146,8 @@ async function handleBorrow(book) {
   try {
     const result = await borrowBook(bookId)
     const dueDate = result?.dueDate ? formatDateTime(result.dueDate) : ''
-    ElMessage.success(dueDate ? `借阅成功，应还日期：${dueDate}` : '借阅成功')
+    const isPending = Number(result?.status) === 4
+    ElMessage.success(isPending ? '借阅申请已提交，等待图书管理员审核' : dueDate ? `借阅成功，应还日期：${dueDate}` : '借阅成功')
 
     await loadBooks()
 

@@ -66,13 +66,30 @@ async function handleLoginSubmit() {
     })
     setCurrentUser(response.data)
     updateSubmitMessage(response.message || '登录成功', false)
-    const targetRouteName = Number(response.data?.userType) === 1 ? 'books' : 'admin-users'
+    const targetRouteName = resolveLoginTargetRouteName(response.data)
     await router.push({ name: targetRouteName })
   } catch (error) {
     updateSubmitMessage(error.message || '登录失败，请稍后重试', true)
   } finally {
     submitting.value = false
   }
+}
+
+/**
+ * 解析登录后的默认跳转页面。
+ *
+ * @param {object} currentUser 当前登录用户
+ * @returns {string} 目标路由名
+ */
+function resolveLoginTargetRouteName(currentUser) {
+  const userType = Number(currentUser?.userType)
+  if (userType === 3) {
+    return 'admin-users'
+  }
+  if (userType === 2) {
+    return 'admin-books'
+  }
+  return 'books'
 }
 </script>
 

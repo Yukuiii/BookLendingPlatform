@@ -39,6 +39,7 @@ const statusOptions = [
   { label: '借阅中', value: 1 },
   { label: '已归还', value: 2 },
   { label: '超期', value: 3 },
+  { label: '审核中', value: 4 },
 ]
 
 /**
@@ -226,6 +227,9 @@ function resolveBorrowStatusLabel(status) {
   if (status === 3) {
     return '超期'
   }
+  if (status === 4) {
+    return '审核中'
+  }
   return '未知'
 }
 
@@ -244,6 +248,9 @@ function resolveBorrowStatusType(status) {
   }
   if (status === 3) {
     return 'danger'
+  }
+  if (status === 4) {
+    return 'warning'
   }
   return 'warning'
 }
@@ -275,6 +282,9 @@ function canCreateComment(record) {
  * @returns {string} 按钮文案
  */
 function resolveCommentActionText(record) {
+  if (Number(record?.status) === 4) {
+    return '待审核'
+  }
   if (record?.commented) {
     const rating = Number(record?.commentRating || 0)
     return rating > 0 ? `已评论 ${rating} 分` : '已评论'
@@ -289,7 +299,7 @@ function resolveCommentActionText(record) {
       <div class="home-section-header">
         <div>
           <strong>我的借阅</strong>
-          <p>查看与筛选你的借阅记录（借阅中、已归还、超期）</p>
+          <p>查看与筛选你的借阅记录（审核中、借阅中、已归还、超期）</p>
         </div>
         <el-button type="primary" plain @click="handleSearch">刷新列表</el-button>
       </div>
@@ -339,7 +349,7 @@ function resolveCommentActionText(record) {
         </template>
       </el-table-column>
 
-      <el-table-column label="借阅时间" width="180">
+      <el-table-column label="申请/借阅时间" width="180">
         <template #default="{ row }">{{ formatDateTime(row.borrowDate) }}</template>
       </el-table-column>
 

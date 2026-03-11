@@ -25,6 +25,7 @@ import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
+import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.ReturnBookVO;
 import lombok.RequiredArgsConstructor;
@@ -264,6 +265,7 @@ public class AdminServiceImpl implements AdminService {
 	@Override
 	public PageResult<AdminBorrowRecordPageVO> pageAdminBorrowRecords(Long adminUserId, AdminBorrowRecordPageQueryDTO queryDTO) {
 		requireAdminUser(adminUserId);
+		borrowService.refreshAllExpiredBorrowRecords();
 
 		Page<BorrowRecord> page = new Page<>(normalizeCurrent(queryDTO), normalizeSize(queryDTO));
 		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<>();
@@ -305,6 +307,19 @@ public class AdminServiceImpl implements AdminService {
 			resultPage.getSize(),
 			resultPage.getPages()
 		);
+	}
+
+	/**
+	 * 管理端审核通过借阅申请。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 审核结果
+	 */
+	@Override
+	public BorrowResultVO approveAdminBorrowRecord(Long adminUserId, Long borrowId) {
+		requireAdminUser(adminUserId);
+		return borrowService.approveBorrowRecord(adminUserId, borrowId);
 	}
 
 	/**
@@ -677,4 +692,3 @@ public class AdminServiceImpl implements AdminService {
 		return size;
 	}
 }
-
