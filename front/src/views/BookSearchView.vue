@@ -5,7 +5,7 @@ import { ElMessage } from 'element-plus'
 
 import { borrowBook } from '../api/borrow'
 import { getBookDetail, pageBooks } from '../api/book'
-import { collectBook } from '../api/collection'
+import { collectBook, listMyCollectionCategories } from '../api/collection'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -23,11 +23,21 @@ const detailDialogVisible = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const detailBook = ref(null)
+const favoriteDialogVisible = ref(false)
+const favoriteCategoryLoading = ref(false)
+const favoriteSaving = ref(false)
+const favoriteCategories = ref([])
 
 const queryForm = reactive({
   bookName: '',
   author: '',
   status: null,
+})
+
+const favoriteForm = reactive({
+  bookId: null,
+  bookName: '',
+  collectionCategoryId: null,
 })
 
 const statusOptions = [
@@ -153,21 +163,17 @@ async function handleBorrow(book) {
  *
  * @param {object} book 图书对象
  */
-function handleFavorite(book) {
+async function handleFavorite(book) {
   if (!book?.bookId) {
     ElMessage.warning('图书信息不完整，暂无法收藏')
     return
   }
 
-  collectBook({
-    bookId: book.bookId,
-  })
-    .then((result) => {
-      ElMessage.success(`已收藏到「${result?.collectionCategoryName || '默认收藏'}」`)
-    })
-    .catch((error) => {
-      ElMessage.error(error.message || '收藏失败，请稍后重试')
-    })
+  favoriteDialogVisible.value = true
+  favoriteForm.bookId = book.bookId
+  favoriteForm.bookName = book.bookName || '当前图书'
+  favoriteForm.collectionCategoryId = null
+  await loadFavoriteCategories()
 }
 
 /**
@@ -204,6 +210,60 @@ function resetDetailState() {
   detailLoading.value = false
   detailError.value = ''
   detailBook.value = null
+}
+
+/**
+ * 加载收藏分类列表。
+ */
+async function loadFavoriteCategories() {
+  favoriteCategoryLoading.value = true
+  try {
+    favoriteCategories.value = await listMyCollectionCategories()
+  } catch (error) {
+    favoriteDialogVisible.value = false
+    ElMessage.error(error.message || '收藏分类加载失败，请稍后重试')
+  } finally {
+    favoriteCategoryLoading.value = false
+  }
+}
+
+/**
+ * 提交收藏请求。
+ */
+async function submitFavorite() {
+  if (!favoriteForm.bookId) {
+    ElMessage.warning('图书信息不完整，暂无法收藏')
+    return
+  }
+  if (!favoriteForm.collectionCategoryId) {
+    ElMessage.warning('请选择收藏分类')
+    return
+  }
+
+  favoriteSaving.value = true
+  try {
+    const result = await collectBook({
+      bookId: favoriteForm.bookId,
+      collectionCategoryId: favoriteForm.collectionCategoryId,
+    })
+    favoriteDialogVisible.value = false
+    ElMessage.success(`已收藏到「${result?.collectionCategoryName || '所选分类'}」`)
+  } catch (error) {
+    ElMessage.error(error.message || '收藏失败，请稍后重试')
+  } finally {
+    favoriteSaving.value = false
+  }
+}
+
+/**
+ * 重置收藏弹窗状态。
+ */
+function resetFavoriteState() {
+  favoriteCategoryLoading.value = false
+  favoriteSaving.value = false
+  favoriteForm.bookId = null
+  favoriteForm.bookName = ''
+  favoriteForm.collectionCategoryId = null
 }
 
 /**
@@ -452,6 +512,42 @@ function resolveDifficultyType(difficultyLevel) {
         立即借阅
       </el-button>
       <el-button @click="detailDialogVisible = false">关闭</el-button>
+    </template>
+  </el-dialog>
+
+  <el-dialog
+    v-model="favoriteDialogVisible"
+    title="选择收藏分类"
+    width="420px"
+    destroy-on-close
+    @closed="resetFavoriteState"
+  >
+    <div v-loading="favoriteCategoryLoading">
+      <el-form label-width="88px">
+        <el-form-item label="图书名称">
+          <span class="favorite-dialog-book-name">{{ favoriteForm.bookName || '当前图书' }}</span>
+        </el-form-item>
+        <el-form-item label="收藏分类">
+          <el-select
+            v-model="favoriteForm.collectionCategoryId"
+            placeholder="请选择收藏分类"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="category in favoriteCategories"
+              :key="category.collectionCategoryId"
+              :label="`${category.categoryName}（${category.collectionCount || 0}）`"
+              :value="category.collectionCategoryId"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <p class="favorite-dialog-hint">如需新增分类，可前往“我的收藏”页面创建后再返回收藏。</p>
+    </div>
+
+    <template #footer>
+      <el-button @click="favoriteDialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="favoriteSaving" @click="submitFavorite">确认收藏</el-button>
     </template>
   </el-dialog>
 </template>
