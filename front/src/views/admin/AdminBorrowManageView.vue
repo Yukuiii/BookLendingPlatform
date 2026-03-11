@@ -93,9 +93,11 @@ async function handleReturn(row) {
   }
 
   try {
-    await returnAdminBorrowRecord(row.borrowId)
+    const result = await returnAdminBorrowRecord(row.borrowId)
     await loadBorrowRecords()
-    ElMessage.success('归还操作已完成')
+    const overdueDays = Number(result?.overdueDays || 0)
+    const fineAmount = Number(result?.fineAmount || 0)
+    ElMessage.success(overdueDays > 0 ? `归还操作已完成，超期 ${overdueDays} 天，罚款 ${fineAmount} 元` : '归还操作已完成')
   } catch (error) {
     ElMessage.error(error.message || '归还失败，请稍后重试')
   }

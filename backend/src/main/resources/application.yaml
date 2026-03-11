@@ -11,3 +11,9 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+library:
+  borrow:
+    overdue-refresh:
+      initial-delay-ms: 60000
+      fixed-delay-ms: 600000

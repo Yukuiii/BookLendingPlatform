@@ -72,6 +72,11 @@ public class BorrowServiceImpl implements BorrowService {
 	private static final int MAX_RENEW_COUNT = 1;
 
 	/**
+	 * 超期每日罚款金额。
+	 */
+	private static final BigDecimal DAILY_OVERDUE_FINE = new BigDecimal("5.00");
+
+	/**
 	 * 普通用户最大借阅数默认值。
 	 */
 	private static final int DEFAULT_MAX_BORROW_COUNT = 5;
@@ -314,6 +319,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setDueDate(newDueDate);
 		borrowRecord.setRenewCount(renewCount + 1);
 		borrowRecord.setOverdueDays(0);
+		borrowRecord.setFineAmount(BigDecimal.ZERO);
 		borrowRecord.setUpdateTime(LocalDateTime.now());
 		borrowRecordMapper.updateById(borrowRecord);
 
@@ -365,7 +371,7 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
-	 * 刷新全部超期未归还记录状态。
+	 * 刷新全部未归还记录的借阅/超期状态。
 	 */
 	@Override
 	@Transactional(rollbackFor = Exception.class)
@@ -482,6 +488,7 @@ public class BorrowServiceImpl implements BorrowService {
 
 		LocalDateTime now = LocalDateTime.now();
 		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), now);
+		BigDecimal fineAmount = calculateFineAmount(overdueDays);
 
 		// 先回补库存，再更新借阅记录，确保归还成功后图书立即恢复可借数量。
 		bookMapper.update(null, new LambdaUpdateWrapper<Book>()
@@ -491,7 +498,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setReturnDate(now);
 		borrowRecord.setStatus(RETURNED_STATUS);
 		borrowRecord.setOverdueDays(overdueDays);
-		borrowRecord.setFineAmount(normalizeFineAmount(borrowRecord.getFineAmount()));
+		borrowRecord.setFineAmount(fineAmount);
 		borrowRecord.setUpdateTime(now);
 		borrowRecordMapper.updateById(borrowRecord);
 
@@ -506,13 +513,13 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
-	 * 刷新用户已超期但仍未归还的借阅记录状态。
+	 * 刷新未归还借阅记录的借阅/超期状态。
 	 *
 	 * @param userId 用户ID
 	 */
 	private void refreshExpiredBorrowRecords(Long userId) {
 		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, BORROWING_STATUS);
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS);
 		if (userId != null && userId > 0) {
 			queryWrapper.eq(BorrowRecord::getUserId, userId);
 		}
@@ -524,21 +531,7 @@ public class BorrowServiceImpl implements BorrowService {
 
 		LocalDateTime now = LocalDateTime.now();
 		for (BorrowRecord record : activeRecords) {
-			if (record == null || record.getBorrowId() == null) {
-				continue;
-			}
-
-			int overdueDays = calculateOverdueDays(record.getDueDate(), now);
-			if (overdueDays <= 0) {
-				continue;
-			}
-
-			// 只同步真正已超时的记录，避免前端筛选“超期”时漏数据。
-			record.setStatus(OVERDUE_STATUS);
-			record.setOverdueDays(overdueDays);
-			record.setFineAmount(normalizeFineAmount(record.getFineAmount()));
-			record.setUpdateTime(now);
-			borrowRecordMapper.updateById(record);
+			syncBorrowRecordOverdueStatus(record, now);
 		}
 	}
 
@@ -556,6 +549,50 @@ public class BorrowServiceImpl implements BorrowService {
 
 		long days = ChronoUnit.DAYS.between(dueDate.toLocalDate(), currentTime.toLocalDate());
 		return (int) Math.max(1L, days);
+	}
+
+	/**
+	 * 计算超期罚款金额。
+	 *
+	 * @param overdueDays 超期天数
+	 * @return 罚款金额
+	 */
+	private BigDecimal calculateFineAmount(int overdueDays) {
+		if (overdueDays <= 0) {
+			return BigDecimal.ZERO;
+		}
+		return DAILY_OVERDUE_FINE.multiply(BigDecimal.valueOf(overdueDays));
+	}
+
+	/**
+	 * 同步单条借阅记录的超期状态与罚款。
+	 *
+	 * @param borrowRecord 借阅记录
+	 * @param currentTime 当前时间
+	 */
+	private void syncBorrowRecordOverdueStatus(BorrowRecord borrowRecord, LocalDateTime currentTime) {
+		if (borrowRecord == null || borrowRecord.getBorrowId() == null || borrowRecord.getDueDate() == null) {
+			return;
+		}
+
+		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), currentTime);
+		int targetStatus = overdueDays > 0 ? OVERDUE_STATUS : BORROWING_STATUS;
+		BigDecimal targetFineAmount = calculateFineAmount(overdueDays);
+		int currentOverdueDays = borrowRecord.getOverdueDays() == null ? 0 : borrowRecord.getOverdueDays();
+		BigDecimal currentFineAmount = normalizeFineAmount(borrowRecord.getFineAmount());
+
+		// 只有状态或罚款发生变化时才落库，避免高频定时刷新产生无意义更新。
+		if (Objects.equals(borrowRecord.getStatus(), targetStatus)
+			&& currentOverdueDays == overdueDays
+			&& currentFineAmount.compareTo(targetFineAmount) == 0) {
+			return;
+		}
+
+		borrowRecord.setStatus(targetStatus);
+		borrowRecord.setOverdueDays(overdueDays);
+		borrowRecord.setFineAmount(targetFineAmount);
+		borrowRecord.setUpdateTime(currentTime);
+		borrowRecordMapper.updateById(borrowRecord);
 	}
 
 	/**

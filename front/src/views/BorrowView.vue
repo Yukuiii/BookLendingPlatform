@@ -139,7 +139,12 @@ async function handleReturn(record) {
     const result = await returnBorrowBook(borrowId)
     const returnDate = formatDateTime(result?.returnDate)
     const overdueDays = Number(result?.overdueDays || 0)
-    ElMessage.success(overdueDays > 0 ? `归还成功，归还时间：${returnDate}，超期 ${overdueDays} 天` : `归还成功，归还时间：${returnDate}`)
+    const fineAmount = Number(result?.fineAmount || 0)
+    ElMessage.success(
+      overdueDays > 0
+        ? `归还成功，归还时间：${returnDate}，超期 ${overdueDays} 天，罚款 ${fineAmount} 元`
+        : `归还成功，归还时间：${returnDate}`,
+    )
     await loadBorrowRecords()
   } catch (error) {
     ElMessage.error(error.message || '归还失败，请稍后重试')
