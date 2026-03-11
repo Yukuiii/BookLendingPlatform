@@ -237,13 +237,11 @@ public class AdminServiceImpl implements AdminService {
 		validateBookLocationRequest(requestDTO);
 
 		Book book = requireBook(requestDTO.getBookId());
-		ensureRfidAvailable(requestDTO.getRfidCode(), null);
 
 		BookLocation bookLocation = new BookLocation();
 		BeanUtils.copyProperties(requestDTO, bookLocation);
 		bookLocation.setArea(normalizeText(requestDTO.getArea()));
 		bookLocation.setShelfNo(normalizeText(requestDTO.getShelfNo()));
-		bookLocation.setRfidCode(normalizeText(requestDTO.getRfidCode()));
 		bookLocation.setCreateTime(LocalDateTime.now());
 		bookLocation.setUpdateTime(LocalDateTime.now());
 		bookLocationMapper.insert(bookLocation);
@@ -265,14 +263,12 @@ public class AdminServiceImpl implements AdminService {
 
 		BookLocation bookLocation = requireBookLocation(locationId);
 		Book book = requireBook(requestDTO.getBookId());
-		ensureRfidAvailable(requestDTO.getRfidCode(), locationId);
 
 		bookLocation.setBookId(requestDTO.getBookId());
 		bookLocation.setFloor(requestDTO.getFloor());
 		bookLocation.setArea(normalizeText(requestDTO.getArea()));
 		bookLocation.setShelfNo(normalizeText(requestDTO.getShelfNo()));
 		bookLocation.setLayer(requestDTO.getLayer());
-		bookLocation.setRfidCode(normalizeText(requestDTO.getRfidCode()));
 		bookLocation.setUpdateTime(LocalDateTime.now());
 		bookLocationMapper.updateById(bookLocation);
 		return buildAdminBookLocationVO(bookLocation, book);
@@ -572,25 +568,6 @@ public class AdminServiceImpl implements AdminService {
 	}
 
 	/**
-	 * 校验 RFID 唯一性。
-	 *
-	 * @param rfidCode RFID编码
-	 * @param excludeLocationId 排除位置ID
-	 */
-	private void ensureRfidAvailable(String rfidCode, Long excludeLocationId) {
-		if (!StringUtils.hasText(rfidCode)) {
-			return;
-		}
-		BookLocation existingLocation = bookLocationMapper.selectOne(new LambdaQueryWrapper<BookLocation>()
-			.eq(BookLocation::getRfidCode, normalizeText(rfidCode))
-			.ne(excludeLocationId != null, BookLocation::getLocationId, excludeLocationId)
-			.last("limit 1"));
-		if (existingLocation != null) {
-			throw new BusinessException("RFID 编码已存在");
-		}
-	}
-
-	/**
 	 * 查询图书。
 	 *
 	 * @param bookId 图书ID
@@ -728,7 +705,6 @@ public class AdminServiceImpl implements AdminService {
 		adminBookLocationVO.setArea(location.getArea());
 		adminBookLocationVO.setShelfNo(location.getShelfNo());
 		adminBookLocationVO.setLayer(location.getLayer());
-		adminBookLocationVO.setRfidCode(location.getRfidCode());
 		adminBookLocationVO.setUpdateTime(location.getUpdateTime());
 		if (book != null) {
 			adminBookLocationVO.setBookName(book.getBookName());

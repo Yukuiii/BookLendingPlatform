@@ -55,13 +55,7 @@ public class AdminBookLocationVO {
 	private Integer layer;
 
 	/**
-	 * RFID码。
-	 */
-	private String rfidCode;
-
-	/**
 	 * 更新时间。
 	 */
 	private LocalDateTime updateTime;
 }
-

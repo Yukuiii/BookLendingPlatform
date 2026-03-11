@@ -441,36 +441,34 @@ CREATE TABLE IF NOT EXISTS `book_location` (
   `area` VARCHAR(20) NOT NULL COMMENT '区域',
   `shelf_no` VARCHAR(20) NOT NULL COMMENT '书架号',
   `layer` INT NOT NULL COMMENT '层数',
-  `rfid_code` VARCHAR(50) DEFAULT NULL COMMENT 'RFID标签码',
   `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`location_id`),
-  UNIQUE KEY `uk_book_location_rfid_code` (`rfid_code`),
   KEY `idx_book_location_book_id` (`book_id`),
   CONSTRAINT `fk_book_location_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='图书位置表';
 
 -- 初始化图书位置信息（仅用于空库初始化）
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 2, 'A', 'A-03', 2, 'RFID-000001' FROM `book` WHERE `isbn` = '9787111128069';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 3, 'B', 'B-12', 1, 'RFID-000002' FROM `book` WHERE `isbn` = '9787111213826';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 1, 'C', 'C-05', 3, 'RFID-000003' FROM `book` WHERE `isbn` = '9787115474063';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 2, 'D', 'D-08', 2, 'RFID-000004' FROM `book` WHERE `isbn` = '9787111629245';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 2, 'D', 'D-09', 1, 'RFID-000005' FROM `book` WHERE `isbn` = '9787115428028';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 2, 'E', 'E-02', 1, 'RFID-000006' FROM `book` WHERE `isbn` = '9787111636649';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 2, 'E', 'E-03', 2, 'RFID-000007' FROM `book` WHERE `isbn` = '9787111558422';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 3, 'F', 'F-01', 1, 'RFID-000008' FROM `book` WHERE `isbn` = '9787111126942';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 3, 'A', 'A-07', 1, 'RFID-000009' FROM `book` WHERE `isbn` = '9787111652038';
-INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`, `rfid_code`)
-SELECT `book_id`, 4, 'G', 'G-04', 2, 'RFID-000010' FROM `book` WHERE `isbn` = '9787111605904';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 2, 'A', 'A-03', 2 FROM `book` WHERE `isbn` = '9787111128069';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 3, 'B', 'B-12', 1 FROM `book` WHERE `isbn` = '9787111213826';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 1, 'C', 'C-05', 3 FROM `book` WHERE `isbn` = '9787115474063';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 2, 'D', 'D-08', 2 FROM `book` WHERE `isbn` = '9787111629245';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 2, 'D', 'D-09', 1 FROM `book` WHERE `isbn` = '9787115428028';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 2, 'E', 'E-02', 1 FROM `book` WHERE `isbn` = '9787111636649';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 2, 'E', 'E-03', 2 FROM `book` WHERE `isbn` = '9787111558422';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 3, 'F', 'F-01', 1 FROM `book` WHERE `isbn` = '9787111126942';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 3, 'A', 'A-07', 1 FROM `book` WHERE `isbn` = '9787111652038';
+INSERT INTO `book_location` (`book_id`, `floor`, `area`, `shelf_no`, `layer`)
+SELECT `book_id`, 4, 'G', 'G-04', 2 FROM `book` WHERE `isbn` = '9787111605904';
 
 CREATE TABLE IF NOT EXISTS `comment` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '评论ID',

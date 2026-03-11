@@ -30,7 +30,6 @@ const locationForm = reactive({
   area: '',
   shelfNo: '',
   layer: 1,
-  rfidCode: '',
 })
 
 const locationFormRef = ref(null)
@@ -123,7 +122,6 @@ function openEditDialog(row) {
   locationForm.area = row.area || ''
   locationForm.shelfNo = row.shelfNo || ''
   locationForm.layer = row.layer ?? 1
-  locationForm.rfidCode = row.rfidCode || ''
   dialogVisible.value = true
 }
 
@@ -145,7 +143,6 @@ async function handleSave() {
       area: locationForm.area.trim(),
       shelfNo: locationForm.shelfNo.trim(),
       layer: Number(locationForm.layer),
-      rfidCode: locationForm.rfidCode.trim() || null,
     }
     if (editingLocationId.value) {
       await updateAdminBookLocation(editingLocationId.value, payload)
@@ -171,7 +168,6 @@ function resetLocationForm() {
   locationForm.area = ''
   locationForm.shelfNo = ''
   locationForm.layer = 1
-  locationForm.rfidCode = ''
 }
 
 /**
@@ -202,7 +198,7 @@ function handleSizeChange(size) {
       <div class="home-section-header">
         <div>
           <strong>位置管理</strong>
-          <p>维护图书楼层、区域、书架、层数与 RFID 编码</p>
+          <p>维护图书楼层、区域、书架与层数信息</p>
         </div>
         <el-button type="primary" @click="openCreateDialog">新增位置</el-button>
       </div>
@@ -230,7 +226,6 @@ function handleSizeChange(size) {
       <el-table-column prop="area" label="区域" width="100" align="center" />
       <el-table-column prop="shelfNo" label="书架号" width="110" align="center" />
       <el-table-column prop="layer" label="层数" width="80" align="center" />
-      <el-table-column prop="rfidCode" label="RFID" min-width="150" />
       <el-table-column label="更新时间" width="180">
         <template #default="{ row }">{{ formatDateTime(row.updateTime) }}</template>
       </el-table-column>
@@ -274,9 +269,6 @@ function handleSizeChange(size) {
       <el-form-item label="层数">
         <el-input-number v-model="locationForm.layer" :min="1" controls-position="right" />
       </el-form-item>
-      <el-form-item label="RFID">
-        <el-input v-model="locationForm.rfidCode" />
-      </el-form-item>
     </el-form>
 
     <template #footer>
@@ -285,4 +277,3 @@ function handleSizeChange(size) {
     </template>
   </el-dialog>
 </template>
-

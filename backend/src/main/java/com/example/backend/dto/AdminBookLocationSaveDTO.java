@@ -32,10 +32,4 @@ public class AdminBookLocationSaveDTO {
 	 * 层数。
 	 */
 	private Integer layer;
-
-	/**
-	 * RFID编码。
-	 */
-	private String rfidCode;
 }
-

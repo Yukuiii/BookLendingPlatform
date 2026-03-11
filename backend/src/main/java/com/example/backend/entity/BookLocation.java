@@ -50,11 +50,6 @@ public class BookLocation {
 	private Integer layer;
 
 	/**
-	 * RFID标签码。
-	 */
-	private String rfidCode;
-
-	/**
 	 * 创建时间。
 	 */
 	private LocalDateTime createTime;
