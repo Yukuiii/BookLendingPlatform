@@ -1,6 +1,7 @@
 package com.example.backend.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.CollectBookRequestDTO;
 import com.example.backend.dto.CollectionPageQueryDTO;
@@ -26,6 +27,7 @@ import com.example.backend.vo.CollectionResultVO;
 import com.example.backend.vo.PageResult;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -128,6 +130,37 @@ public class CollectionServiceImpl implements CollectionService {
 		collectionCategory.setUpdateTime(LocalDateTime.now());
 		collectionCategoryMapper.insert(collectionCategory);
 		return buildCollectionCategoryVO(collectionCategory, 0L);
+	}
+
+	/**
+	 * 删除收藏分类。
+	 *
+	 * @param userId 用户ID
+	 * @param collectionCategoryId 收藏分类ID
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void removeCollectionCategory(Long userId, Long collectionCategoryId) {
+		requireActiveUser(userId);
+		CollectionCategory targetCategory = requireOwnedCategory(userId, collectionCategoryId);
+		if (Objects.equals(targetCategory.getIsDefault(), 1)) {
+			throw new BusinessException("默认收藏分类不允许删除");
+		}
+
+		CollectionCategory defaultCategory = ensureDefaultCategory(userId);
+		LocalDateTime now = LocalDateTime.now();
+
+		// 删除自定义分类前，先把该分类下的收藏统一迁移到默认收藏，避免收藏记录丢失。
+		collectionRecordMapper.update(
+			null,
+			new LambdaUpdateWrapper<CollectionRecord>()
+				.eq(CollectionRecord::getUserId, userId)
+				.eq(CollectionRecord::getCollectionCategoryId, collectionCategoryId)
+				.set(CollectionRecord::getCollectionCategoryId, defaultCategory.getCollectionCategoryId())
+				.set(CollectionRecord::getUpdateTime, now)
+		);
+
+		collectionCategoryMapper.deleteById(collectionCategoryId);
 	}
 
 	/**
@@ -308,6 +341,27 @@ public class CollectionServiceImpl implements CollectionService {
 			throw new BusinessException("无权操作该收藏记录");
 		}
 		return collectionRecord;
+	}
+
+	/**
+	 * 查询并校验归属当前用户的收藏分类。
+	 *
+	 * @param userId 用户ID
+	 * @param collectionCategoryId 收藏分类ID
+	 * @return 收藏分类
+	 */
+	private CollectionCategory requireOwnedCategory(Long userId, Long collectionCategoryId) {
+		if (collectionCategoryId == null || collectionCategoryId <= 0) {
+			throw new BusinessException("收藏分类ID不合法");
+		}
+		CollectionCategory collectionCategory = collectionCategoryMapper.selectById(collectionCategoryId);
+		if (collectionCategory == null || !Objects.equals(collectionCategory.getUserId(), userId)) {
+			throw new BusinessException("收藏分类不存在");
+		}
+		if (!Objects.equals(collectionCategory.getStatus(), NORMAL_STATUS)) {
+			throw new BusinessException("收藏分类已不可用");
+		}
+		return collectionCategory;
 	}
 
 	/**

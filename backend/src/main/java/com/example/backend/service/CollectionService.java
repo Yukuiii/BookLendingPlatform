@@ -34,6 +34,14 @@ public interface CollectionService {
 	CollectionCategoryVO createCollectionCategory(Long userId, CreateCollectionCategoryDTO requestDTO);
 
 	/**
+	 * 删除收藏分类。
+	 *
+	 * @param userId 用户ID
+	 * @param collectionCategoryId 收藏分类ID
+	 */
+	void removeCollectionCategory(Long userId, Long collectionCategoryId);
+
+	/**
 	 * 收藏图书。
 	 *
 	 * @param userId 用户ID
@@ -69,4 +77,3 @@ public interface CollectionService {
 	 */
 	CollectionResultVO updateCollectionCategory(Long userId, Long collectionId, UpdateCollectionRecordCategoryDTO requestDTO);
 }
-

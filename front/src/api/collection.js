@@ -25,6 +25,18 @@ export function createCollectionCategory(payload) {
 }
 
 /**
+ * 删除收藏分类。
+ *
+ * @param {number|string} collectionCategoryId 收藏分类ID
+ * @returns {Promise<any>} 删除结果
+ */
+export function removeCollectionCategory(collectionCategoryId) {
+  return request(`/collection-categories/${encodeURIComponent(collectionCategoryId)}`, {
+    method: 'DELETE',
+  })
+}
+
+/**
  * 收藏图书。
  *
  * @param {{bookId: number|string, collectionCategoryId?: number|string|null}} payload 收藏参数
@@ -86,4 +98,3 @@ export function updateCollectionCategory(collectionId, payload) {
     body: JSON.stringify(payload),
   })
 }
-

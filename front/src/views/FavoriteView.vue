@@ -6,6 +6,7 @@ import {
   createCollectionCategory,
   listMyCollectionCategories,
   pageMyCollections,
+  removeCollectionCategory,
   removeCollection,
   updateCollectionCategory,
 } from '../api/collection'
@@ -18,7 +19,9 @@ import { formatDateTime, formatLocation } from '../utils/book'
 const loading = ref(false)
 const categoryLoading = ref(false)
 const categoryDialogVisible = ref(false)
+const deleteCategoryDialogVisible = ref(false)
 const savingCategory = ref(false)
+const deletingCategory = ref(false)
 const records = ref([])
 const categories = ref([])
 const total = ref(0)
@@ -28,6 +31,10 @@ const activeCategoryTab = ref('all')
 
 const categoryForm = reactive({
   categoryName: '',
+})
+
+const deleteCategoryForm = reactive({
+  collectionCategoryId: null,
 })
 
 const categoryRules = {
@@ -49,6 +56,10 @@ const categoryOptions = computed(() => {
     label: category.categoryName,
     value: category.collectionCategoryId,
   }))
+})
+
+const removableCategories = computed(() => {
+  return categories.value.filter((category) => category?.isDefault !== 1)
 })
 
 /**
@@ -102,6 +113,14 @@ function openCreateCategoryDialog() {
 }
 
 /**
+ * 打开删除分类弹窗。
+ */
+function openDeleteCategoryDialog() {
+  deleteCategoryForm.collectionCategoryId = removableCategories.value[0]?.collectionCategoryId ?? null
+  deleteCategoryDialogVisible.value = true
+}
+
+/**
  * 创建收藏分类。
  */
 async function handleCreateCategory() {
@@ -126,6 +145,42 @@ async function handleCreateCategory() {
     ElMessage.error(error.message || '收藏分类新建失败，请稍后重试')
   } finally {
     savingCategory.value = false
+  }
+}
+
+/**
+ * 删除收藏分类。
+ */
+async function handleDeleteCategory() {
+  const collectionCategoryId = deleteCategoryForm.collectionCategoryId
+  if (!collectionCategoryId) {
+    ElMessage.warning('请选择要删除的收藏分类')
+    return
+  }
+
+  const category = removableCategories.value.find(
+    (currentCategory) => currentCategory.collectionCategoryId === collectionCategoryId
+  )
+  if (!category) {
+    ElMessage.warning('选中的收藏分类不可删除')
+    return
+  }
+
+  deletingCategory.value = true
+  try {
+    await removeCollectionCategory(collectionCategoryId)
+    deleteCategoryDialogVisible.value = false
+    if (activeCategoryTab.value === String(collectionCategoryId)) {
+      activeCategoryTab.value = 'all'
+    }
+    currentPage.value = 1
+    await loadCategories()
+    await loadCollections()
+    ElMessage.success('收藏分类删除成功，图书已迁移到默认收藏')
+  } catch (error) {
+    ElMessage.error(error.message || '收藏分类删除失败，请稍后重试')
+  } finally {
+    deletingCategory.value = false
   }
 }
 
@@ -225,7 +280,12 @@ function buildCoverPlaceholder(record) {
           <strong>我的收藏</strong>
           <p>管理个人收藏分类，并在分类内整理已收藏图书</p>
         </div>
-        <el-button type="primary" @click="openCreateCategoryDialog">新建收藏分类</el-button>
+        <div class="favorite-header-actions">
+          <el-button type="primary" @click="openCreateCategoryDialog">新建收藏分类</el-button>
+          <el-button type="danger" plain :disabled="!removableCategories.length" @click="openDeleteCategoryDialog">
+            删除分类
+          </el-button>
+        </div>
       </div>
     </template>
 
@@ -318,5 +378,29 @@ function buildCoverPlaceholder(record) {
       <el-button type="primary" :loading="savingCategory" @click="handleCreateCategory">确定</el-button>
     </template>
   </el-dialog>
-</template>
 
+  <el-dialog v-model="deleteCategoryDialogVisible" title="删除收藏分类" width="420px" destroy-on-close>
+    <el-form :model="deleteCategoryForm" label-width="88px">
+      <el-form-item label="选择分类">
+        <el-select
+          v-model="deleteCategoryForm.collectionCategoryId"
+          placeholder="请选择要删除的收藏分类"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="category in removableCategories"
+            :key="category.collectionCategoryId"
+            :label="`${category.categoryName}（${category.collectionCount || 0}）`"
+            :value="category.collectionCategoryId"
+          />
+        </el-select>
+      </el-form-item>
+      <p class="favorite-delete-hint">默认分类不可删除，删除后该分类下图书会自动迁移到默认收藏。</p>
+    </el-form>
+
+    <template #footer>
+      <el-button @click="deleteCategoryDialogVisible = false">取消</el-button>
+      <el-button type="danger" :loading="deletingCategory" @click="handleDeleteCategory">确认删除</el-button>
+    </template>
+  </el-dialog>
+</template>

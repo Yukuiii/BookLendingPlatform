@@ -4,7 +4,9 @@ import com.example.backend.dto.CreateCollectionCategoryDTO;
 import com.example.backend.service.CollectionService;
 import com.example.backend.vo.CollectionCategoryVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -50,5 +52,18 @@ public class CollectionCategoryController {
 	) {
 		return collectionService.createCollectionCategory(userId, requestDTO);
 	}
-}
 
+	/**
+	 * 删除收藏分类。
+	 *
+	 * @param userId 当前用户ID
+	 * @param collectionCategoryId 收藏分类ID
+	 */
+	@DeleteMapping("/{collectionCategoryId}")
+	public void removeCollectionCategory(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@PathVariable Long collectionCategoryId
+	) {
+		collectionService.removeCollectionCategory(userId, collectionCategoryId);
+	}
+}
