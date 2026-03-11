@@ -4,10 +4,13 @@ import com.example.backend.dto.AdminBookLocationPageQueryDTO;
 import com.example.backend.dto.AdminBookLocationSaveDTO;
 import com.example.backend.dto.AdminBookSaveDTO;
 import com.example.backend.dto.AdminBorrowRecordPageQueryDTO;
+import com.example.backend.dto.AdminCommentPageQueryDTO;
+import com.example.backend.dto.AdminCommentStatusUpdateDTO;
 import com.example.backend.dto.BookPageQueryDTO;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
+import com.example.backend.vo.AdminCommentPageVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.BorrowResultVO;
@@ -93,6 +96,25 @@ public interface AdminService {
 	 * @return 借阅记录分页结果
 	 */
 	PageResult<AdminBorrowRecordPageVO> pageAdminBorrowRecords(Long adminUserId, AdminBorrowRecordPageQueryDTO queryDTO);
+
+	/**
+	 * 管理端分页查询评论。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param queryDTO 查询参数
+	 * @return 评论分页结果
+	 */
+	PageResult<AdminCommentPageVO> pageAdminComments(Long adminUserId, AdminCommentPageQueryDTO queryDTO);
+
+	/**
+	 * 管理端修改评论状态。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param commentId 评论ID
+	 * @param requestDTO 修改参数
+	 * @return 修改后的评论
+	 */
+	AdminCommentPageVO updateAdminCommentStatus(Long adminUserId, Long commentId, AdminCommentStatusUpdateDTO requestDTO);
 
 	/**
 	 * 管理端审核通过借阅申请。

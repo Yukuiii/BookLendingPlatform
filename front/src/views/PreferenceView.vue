@@ -20,8 +20,6 @@ const preferenceForm = reactive({
   preferFields: [],
   preferDifficulty: null,
   preferScenes: [],
-  recommendNewBook: false,
-  recommendHotBook: true,
 })
 
 const fieldOptions = ref([])
@@ -55,8 +53,6 @@ async function loadPreferencePage() {
     preferenceForm.preferFields = preference?.preferFields || []
     preferenceForm.preferDifficulty = preference?.preferDifficulty ?? null
     preferenceForm.preferScenes = preference?.preferScenes || []
-    preferenceForm.recommendNewBook = Number(preference?.recommendNewBook) === 1
-    preferenceForm.recommendHotBook = Number(preference?.recommendHotBook) === 1
     fieldOptions.value = options?.fieldOptions || []
     sceneOptions.value = options?.sceneOptions || []
   } catch (error) {
@@ -76,8 +72,6 @@ async function handleSave() {
       preferFields: preferenceForm.preferFields,
       preferDifficulty: preferenceForm.preferDifficulty,
       preferScenes: preferenceForm.preferScenes,
-      recommendNewBook: preferenceForm.recommendNewBook ? 1 : 0,
-      recommendHotBook: preferenceForm.recommendHotBook ? 1 : 0,
     })
     ElMessage.success('个性化设置保存成功，首页推荐已按最新偏好生效')
   } catch (error) {
@@ -94,8 +88,6 @@ function handleReset() {
   preferenceForm.preferFields = []
   preferenceForm.preferDifficulty = null
   preferenceForm.preferScenes = []
-  preferenceForm.recommendNewBook = false
-  preferenceForm.recommendHotBook = true
 }
 </script>
 
@@ -110,14 +102,6 @@ function handleReset() {
           </div>
         </div>
       </template>
-
-      <el-alert
-        class="home-alert"
-        :closable="false"
-        type="info"
-        title="保存后无需重新登录，回到图书首页即可看到新的猜你喜欢结果。"
-        show-icon
-      />
 
       <el-form ref="preferenceFormRef" class="profile-form" :model="preferenceForm" label-width="96px">
         <el-form-item label="偏好领域">
@@ -154,14 +138,6 @@ function handleReset() {
           </el-select>
         </el-form-item>
 
-        <el-form-item label="推荐新书">
-          <el-switch v-model="preferenceForm.recommendNewBook" inline-prompt active-text="开" inactive-text="关" />
-        </el-form-item>
-
-        <el-form-item label="推荐热门">
-          <el-switch v-model="preferenceForm.recommendHotBook" inline-prompt active-text="开" inactive-text="关" />
-        </el-form-item>
-
         <el-form-item class="profile-form-actions">
           <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
           <el-button @click="handleReset">恢复默认</el-button>
@@ -191,10 +167,6 @@ function handleReset() {
         <div class="preference-summary-item">
           <strong>阅读场景</strong>
           <p>适用场景会匹配课程学习、工程实践、面试提升、项目实战等标签。</p>
-        </div>
-        <div class="preference-summary-item">
-          <strong>新书 / 热门</strong>
-          <p>开启后会额外提升新书或借阅热度高的图书排序权重。</p>
         </div>
       </div>
     </el-card>

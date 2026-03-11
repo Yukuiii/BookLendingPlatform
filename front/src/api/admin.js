@@ -120,6 +120,30 @@ export function pageAdminBorrowRecords(params = {}) {
 }
 
 /**
+ * 查询管理端评论分页列表。
+ *
+ * @param {{current?: number, size?: number, username?: string, bookName?: string, status?: number|null}} params 查询参数
+ * @returns {Promise<any>} 评论分页结果
+ */
+export function pageAdminComments(params = {}) {
+  return buildGetRequest('/admin/comments/page', params)
+}
+
+/**
+ * 管理端修改评论状态。
+ *
+ * @param {number|string} commentId 评论ID
+ * @param {{status: number}} payload 修改参数
+ * @returns {Promise<any>} 修改结果
+ */
+export function updateAdminCommentStatus(commentId, payload) {
+  return request(`/admin/comments/${encodeURIComponent(commentId)}/status`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
+/**
  * 管理端审核通过借阅记录。
  *
  * @param {number|string} borrowId 借阅记录ID

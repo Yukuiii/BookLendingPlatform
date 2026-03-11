@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { Management, MapLocation, Reading, User } from '@element-plus/icons-vue'
+import { ChatDotRound, Management, MapLocation, Reading, User } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -58,6 +58,7 @@ const menuItems = computed(() => {
     { key: 'admin-books', label: '图书管理', icon: Management },
     { key: 'admin-locations', label: '图书位置管理', icon: MapLocation },
     { key: 'admin-borrows', label: '借阅管理', icon: Reading },
+    { key: 'admin-comments', label: '评论管理', icon: ChatDotRound },
   ]
 
   if (Number(currentUser.value?.userType) === 3) {

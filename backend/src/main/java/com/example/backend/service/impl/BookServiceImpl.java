@@ -24,7 +24,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -262,8 +261,9 @@ public class BookServiceImpl implements BookService {
 		List<String> preferFields = splitPreferenceItems(preference == null ? null : preference.getPreferFields());
 		List<String> preferScenes = splitPreferenceItems(preference == null ? null : preference.getPreferScenes());
 		Integer preferDifficulty = preference == null ? null : preference.getPreferDifficulty();
-		boolean preferNewBook = Objects.equals(preference == null ? null : preference.getRecommendNewBook(), 1);
-		boolean preferHotBook = Objects.equals(preference == null ? null : preference.getRecommendHotBook(), 1);
+		boolean hasPersonalPreference = (preferFields != null && !preferFields.isEmpty())
+			|| preferDifficulty != null
+			|| (preferScenes != null && !preferScenes.isEmpty());
 
 		List<Book> books = bookMapper.selectList(new LambdaQueryWrapper<Book>()
 			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
@@ -273,9 +273,9 @@ public class BookServiceImpl implements BookService {
 		}
 
 		List<Book> recommendedBooks = books.stream()
-			// 推荐排序完全依赖偏好得分和兜底热度/新书策略，避免首页猜你喜欢只是简单按创建时间展示。
+			// 用户有偏好时优先按偏好匹配，无偏好时直接按总借阅次数兜底，避免再混入“新书优先”的隐式策略。
 			.sorted(Comparator
-				.comparingInt((Book book) -> calculateRecommendScore(book, preferFields, preferDifficulty, preferScenes, preferNewBook, preferHotBook))
+				.comparingInt((Book book) -> calculateRecommendScore(book, preferFields, preferDifficulty, preferScenes, hasPersonalPreference))
 				.reversed()
 				.thenComparing((Book book) -> defaultInt(book.getBorrowCount()), Comparator.reverseOrder())
 				.thenComparing(this::resolveBookReferenceDate, Comparator.nullsLast(Comparator.reverseOrder()))
@@ -367,8 +367,7 @@ public class BookServiceImpl implements BookService {
 	 * @param preferFields 偏好领域
 	 * @param preferDifficulty 偏好难度
 	 * @param preferScenes 偏好场景
-	 * @param preferNewBook 是否优先新书
-	 * @param preferHotBook 是否优先热门
+	 * @param hasPersonalPreference 是否存在个性化偏好
 	 * @return 推荐得分
 	 */
 	private int calculateRecommendScore(
@@ -376,16 +375,13 @@ public class BookServiceImpl implements BookService {
 		List<String> preferFields,
 		Integer preferDifficulty,
 		List<String> preferScenes,
-		boolean preferNewBook,
-		boolean preferHotBook
+		boolean hasPersonalPreference
 	) {
-		int score = 0;
-		boolean hasPreference = (preferFields != null && !preferFields.isEmpty())
-			|| preferDifficulty != null
-			|| (preferScenes != null && !preferScenes.isEmpty())
-			|| preferNewBook
-			|| preferHotBook;
+		if (!hasPersonalPreference) {
+			return 0;
+		}
 
+		int score = 0;
 		if (preferFields != null && !preferFields.isEmpty() && preferFields.contains(book.getSubField())) {
 			score += 45;
 		}
@@ -398,45 +394,7 @@ public class BookServiceImpl implements BookService {
 				score += 35;
 			}
 		}
-		if (preferNewBook) {
-			score += calculateNewBookScore(book);
-		}
-		if (preferHotBook) {
-			score += calculateHotBookScore(book);
-		}
-
-		// 用户未配置偏好时，兜底按热门+较新组合推荐，保证首页始终有内容。
-		if (!hasPreference) {
-			score += calculateHotBookScore(book);
-			score += calculateNewBookScore(book);
-		}
 		return score;
-	}
-
-	/**
-	 * 计算新书推荐得分。
-	 *
-	 * @param book 图书实体
-	 * @return 新书得分
-	 */
-	private int calculateNewBookScore(Book book) {
-		LocalDate referenceDate = resolveBookReferenceDate(book);
-		if (referenceDate == null) {
-			return 0;
-		}
-
-		long months = Math.max(0L, ChronoUnit.MONTHS.between(referenceDate, LocalDate.now()));
-		return (int) Math.max(0L, 24L - Math.min(months, 24L));
-	}
-
-	/**
-	 * 计算热门图书得分。
-	 *
-	 * @param book 图书实体
-	 * @return 热门得分
-	 */
-	private int calculateHotBookScore(Book book) {
-		return Math.min(defaultInt(book.getBorrowCount()) / 20, 40);
 	}
 
 	/**

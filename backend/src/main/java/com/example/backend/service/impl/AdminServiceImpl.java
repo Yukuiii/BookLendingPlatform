@@ -6,23 +6,28 @@ import com.example.backend.dto.AdminBookLocationPageQueryDTO;
 import com.example.backend.dto.AdminBookLocationSaveDTO;
 import com.example.backend.dto.AdminBookSaveDTO;
 import com.example.backend.dto.AdminBorrowRecordPageQueryDTO;
+import com.example.backend.dto.AdminCommentPageQueryDTO;
+import com.example.backend.dto.AdminCommentStatusUpdateDTO;
 import com.example.backend.dto.BookPageQueryDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BookLocation;
 import com.example.backend.entity.BorrowRecord;
+import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
 import com.example.backend.mapper.BookMapper;
 import com.example.backend.mapper.BorrowRecordMapper;
+import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.AdminService;
 import com.example.backend.service.BookService;
 import com.example.backend.service.BorrowService;
 import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
+import com.example.backend.vo.AdminCommentPageVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.BorrowResultVO;
@@ -68,6 +73,21 @@ public class AdminServiceImpl implements AdminService {
 	private static final int NORMAL_STATUS = 1;
 
 	/**
+	 * 评论隐藏状态。
+	 */
+	private static final int COMMENT_HIDDEN_STATUS = 0;
+
+	/**
+	 * 评论显示状态。
+	 */
+	private static final int COMMENT_VISIBLE_STATUS = 1;
+
+	/**
+	 * 评论审核中状态。
+	 */
+	private static final int COMMENT_PENDING_STATUS = 2;
+
+	/**
 	 * 可用管理员角色。
 	 */
 	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
@@ -77,6 +97,7 @@ public class AdminServiceImpl implements AdminService {
 	private final BookCategoryMapper bookCategoryMapper;
 	private final BookLocationMapper bookLocationMapper;
 	private final BorrowRecordMapper borrowRecordMapper;
+	private final CommentMapper commentMapper;
 	private final BookService bookService;
 	private final BorrowService borrowService;
 
@@ -310,6 +331,82 @@ public class AdminServiceImpl implements AdminService {
 	}
 
 	/**
+	 * 管理端分页查询评论。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param queryDTO 查询参数
+	 * @return 评论分页结果
+	 */
+	@Override
+	public PageResult<AdminCommentPageVO> pageAdminComments(Long adminUserId, AdminCommentPageQueryDTO queryDTO) {
+		requireAdminUser(adminUserId);
+
+		Page<Comment> page = new Page<>(normalizeCurrent(queryDTO), normalizeSize(queryDTO));
+		LambdaQueryWrapper<Comment> queryWrapper = new LambdaQueryWrapper<>();
+
+		Map<Long, User> userMap = resolveFilteredUserMap(queryDTO == null ? null : queryDTO.getUsername());
+		if (userMap != null) {
+			if (userMap.isEmpty()) {
+				return new PageResult<>(List.of(), 0L, page.getCurrent(), page.getSize(), 0L);
+			}
+			queryWrapper.in(Comment::getUserId, userMap.keySet());
+		}
+
+		Map<Long, Book> filteredBookMap = resolveFilteredBookMap(queryDTO == null ? null : queryDTO.getBookName(), null);
+		if (filteredBookMap != null) {
+			if (filteredBookMap.isEmpty()) {
+				return new PageResult<>(List.of(), 0L, page.getCurrent(), page.getSize(), 0L);
+			}
+			queryWrapper.in(Comment::getBookId, filteredBookMap.keySet());
+		}
+
+		if (queryDTO != null && queryDTO.getStatus() != null) {
+			queryWrapper.eq(Comment::getStatus, queryDTO.getStatus());
+		}
+		queryWrapper.orderByDesc(Comment::getCreateTime)
+			.orderByDesc(Comment::getId);
+
+		Page<Comment> resultPage = commentMapper.selectPage(page, queryWrapper);
+		List<Comment> records = resultPage.getRecords() == null ? List.of() : resultPage.getRecords();
+		Map<Long, User> finalUserMap = userMap == null ? resolveUserMapByIds(records.stream().map(Comment::getUserId).toList()) : userMap;
+		Map<Long, Book> finalBookMap = filteredBookMap == null ? resolveBookMapByIds(records.stream().map(Comment::getBookId).toList()) : filteredBookMap;
+
+		List<AdminCommentPageVO> pageRecords = records.stream()
+			.map((comment) -> buildAdminCommentPageVO(comment, finalUserMap.get(comment.getUserId()), finalBookMap.get(comment.getBookId())))
+			.toList();
+		return new PageResult<>(
+			pageRecords,
+			resultPage.getTotal(),
+			resultPage.getCurrent(),
+			resultPage.getSize(),
+			resultPage.getPages()
+		);
+	}
+
+	/**
+	 * 管理端修改评论状态。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param commentId 评论ID
+	 * @param requestDTO 修改参数
+	 * @return 修改后的评论
+	 */
+	@Override
+	public AdminCommentPageVO updateAdminCommentStatus(Long adminUserId, Long commentId, AdminCommentStatusUpdateDTO requestDTO) {
+		requireAdminUser(adminUserId);
+		validateCommentStatusRequest(commentId, requestDTO);
+
+		Comment comment = requireComment(commentId);
+		comment.setStatus(requestDTO.getStatus());
+		comment.setUpdateTime(LocalDateTime.now());
+		commentMapper.updateById(comment);
+
+		User user = userMapper.selectById(comment.getUserId());
+		Book book = bookMapper.selectById(comment.getBookId());
+		return buildAdminCommentPageVO(commentMapper.selectById(commentId), user, book);
+	}
+
+	/**
 	 * 管理端审核通过借阅申请。
 	 *
 	 * @param adminUserId 管理员ID
@@ -453,6 +550,26 @@ public class AdminServiceImpl implements AdminService {
 	}
 
 	/**
+	 * 校验评论状态修改参数。
+	 *
+	 * @param commentId 评论ID
+	 * @param requestDTO 修改参数
+	 */
+	private void validateCommentStatusRequest(Long commentId, AdminCommentStatusUpdateDTO requestDTO) {
+		if (commentId == null || commentId <= 0) {
+			throw new BusinessException("评论ID不合法");
+		}
+		if (requestDTO == null || requestDTO.getStatus() == null) {
+			throw new BusinessException("评论状态不能为空");
+		}
+		if (!Objects.equals(requestDTO.getStatus(), COMMENT_HIDDEN_STATUS)
+			&& !Objects.equals(requestDTO.getStatus(), COMMENT_VISIBLE_STATUS)
+			&& !Objects.equals(requestDTO.getStatus(), COMMENT_PENDING_STATUS)) {
+			throw new BusinessException("评论状态不合法");
+		}
+	}
+
+	/**
 	 * 校验 RFID 唯一性。
 	 *
 	 * @param rfidCode RFID编码
@@ -503,6 +620,20 @@ public class AdminServiceImpl implements AdminService {
 			throw new BusinessException("图书位置不存在");
 		}
 		return bookLocation;
+	}
+
+	/**
+	 * 查询评论。
+	 *
+	 * @param commentId 评论ID
+	 * @return 评论实体
+	 */
+	private Comment requireComment(Long commentId) {
+		Comment comment = commentMapper.selectById(commentId);
+		if (comment == null) {
+			throw new BusinessException("评论不存在");
+		}
+		return comment;
 	}
 
 	/**
@@ -638,6 +769,39 @@ public class AdminServiceImpl implements AdminService {
 	}
 
 	/**
+	 * 构建评论返回对象。
+	 *
+	 * @param comment 评论
+	 * @param user 用户
+	 * @param book 图书
+	 * @return 评论返回对象
+	 */
+	private AdminCommentPageVO buildAdminCommentPageVO(Comment comment, User user, Book book) {
+		AdminCommentPageVO adminCommentPageVO = new AdminCommentPageVO();
+		if (comment == null) {
+			return adminCommentPageVO;
+		}
+		adminCommentPageVO.setCommentId(comment.getId());
+		adminCommentPageVO.setUserId(comment.getUserId());
+		adminCommentPageVO.setBookId(comment.getBookId());
+		adminCommentPageVO.setContent(comment.getContent());
+		adminCommentPageVO.setRating(comment.getRating());
+		adminCommentPageVO.setLikeCount(comment.getLikeCount());
+		adminCommentPageVO.setStatus(comment.getStatus());
+		adminCommentPageVO.setCreateTime(comment.getCreateTime());
+		adminCommentPageVO.setUpdateTime(comment.getUpdateTime());
+		if (user != null) {
+			adminCommentPageVO.setUsername(user.getUsername());
+			adminCommentPageVO.setRealName(user.getRealName());
+		}
+		if (book != null) {
+			adminCommentPageVO.setBookName(book.getBookName());
+			adminCommentPageVO.setIsbn(book.getIsbn());
+		}
+		return adminCommentPageVO;
+	}
+
+	/**
 	 * 规范化文本。
 	 *
 	 * @param value 原始文本
@@ -666,6 +830,12 @@ public class AdminServiceImpl implements AdminService {
 			}
 			return borrowRecordPageQueryDTO.getCurrent();
 		}
+		if (queryDTO instanceof AdminCommentPageQueryDTO commentPageQueryDTO) {
+			if (commentPageQueryDTO.getCurrent() == null || commentPageQueryDTO.getCurrent() <= 0) {
+				return DEFAULT_CURRENT;
+			}
+			return commentPageQueryDTO.getCurrent();
+		}
 		return DEFAULT_CURRENT;
 	}
 
@@ -682,6 +852,9 @@ public class AdminServiceImpl implements AdminService {
 		}
 		if (queryDTO instanceof AdminBorrowRecordPageQueryDTO borrowRecordPageQueryDTO) {
 			size = borrowRecordPageQueryDTO.getSize();
+		}
+		if (queryDTO instanceof AdminCommentPageQueryDTO commentPageQueryDTO) {
+			size = commentPageQueryDTO.getSize();
 		}
 		if (size == null || size <= 0) {
 			return DEFAULT_SIZE;

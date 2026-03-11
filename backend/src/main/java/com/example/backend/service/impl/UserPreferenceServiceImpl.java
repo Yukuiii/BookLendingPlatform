@@ -91,8 +91,9 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 		preference.setPreferFields(joinPreferenceItems(preferFields));
 		preference.setPreferDifficulty(requestDTO.getPreferDifficulty());
 		preference.setPreferScenes(joinPreferenceItems(preferScenes));
-		preference.setRecommendNewBook(normalizeRecommendFlag(requestDTO.getRecommendNewBook()));
-		preference.setRecommendHotBook(normalizeRecommendFlag(requestDTO.getRecommendHotBook()));
+		// 前端已移除隐藏推荐开关，这里统一回落为关闭，避免旧库中的历史值继续影响推荐结果。
+		preference.setRecommendNewBook(0);
+		preference.setRecommendHotBook(0);
 		preference.setUpdateTime(now);
 
 		if (preference.getPreferenceId() == null) {
@@ -187,12 +188,6 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 			&& requestDTO.getPreferDifficulty() != 3) {
 			throw new BusinessException("偏好难度不合法");
 		}
-		if (!isValidRecommendFlag(requestDTO.getRecommendNewBook())) {
-			throw new BusinessException("新书推荐开关不合法");
-		}
-		if (!isValidRecommendFlag(requestDTO.getRecommendHotBook())) {
-			throw new BusinessException("热门推荐开关不合法");
-		}
 	}
 
 	/**
@@ -230,8 +225,6 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 		vo.setUserId(userId);
 		vo.setPreferFields(List.of());
 		vo.setPreferScenes(List.of());
-		vo.setRecommendNewBook(0);
-		vo.setRecommendHotBook(0);
 		if (preference == null) {
 			return vo;
 		}
@@ -241,8 +234,6 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 		vo.setPreferFields(splitPreferenceItems(preference.getPreferFields()));
 		vo.setPreferDifficulty(preference.getPreferDifficulty());
 		vo.setPreferScenes(splitPreferenceItems(preference.getPreferScenes()));
-		vo.setRecommendNewBook(normalizeRecommendFlag(preference.getRecommendNewBook()));
-		vo.setRecommendHotBook(normalizeRecommendFlag(preference.getRecommendHotBook()));
 		vo.setCreateTime(preference.getCreateTime());
 		vo.setUpdateTime(preference.getUpdateTime());
 		return vo;
@@ -276,23 +267,4 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 			.toList();
 	}
 
-	/**
-	 * 校验推荐开关是否合法。
-	 *
-	 * @param value 开关值
-	 * @return 是否合法
-	 */
-	private boolean isValidRecommendFlag(Integer value) {
-		return value == null || value == 0 || value == 1;
-	}
-
-	/**
-	 * 规范化推荐开关值。
-	 *
-	 * @param value 开关值
-	 * @return 规范化后的值
-	 */
-	private Integer normalizeRecommendFlag(Integer value) {
-		return Objects.equals(value, 1) ? 1 : 0;
-	}
 }

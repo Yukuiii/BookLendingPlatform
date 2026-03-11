@@ -14,6 +14,7 @@ import ProfileView from '../views/ProfileView.vue'
 import AdminBookLocationView from '../views/admin/AdminBookLocationView.vue'
 import AdminBookManageView from '../views/admin/AdminBookManageView.vue'
 import AdminBorrowManageView from '../views/admin/AdminBorrowManageView.vue'
+import AdminCommentManageView from '../views/admin/AdminCommentManageView.vue'
 import AdminUserManageView from '../views/admin/AdminUserManageView.vue'
 import { getCurrentUser } from '../utils/auth'
 
@@ -158,6 +159,14 @@ const routes = [
         component: AdminBorrowManageView,
         meta: {
           title: '借阅管理',
+        },
+      },
+      {
+        path: 'comments',
+        name: 'admin-comments',
+        component: AdminCommentManageView,
+        meta: {
+          title: '评论管理',
         },
       },
       {
