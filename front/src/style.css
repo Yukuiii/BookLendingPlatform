@@ -857,6 +857,22 @@ select {
   font-size: 12px;
 }
 
+.book-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 24px;
+}
+
+.book-card-rating .el-rate {
+  height: auto;
+}
+
+.book-card-rating-text {
+  color: #6b7280;
+  font-size: 12px;
+}
+
 .book-card-scene {
   margin: 0;
   color: #9ca3af;

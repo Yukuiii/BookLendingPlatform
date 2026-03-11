@@ -1,5 +1,7 @@
 package com.example.backend.service.impl;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
@@ -18,12 +20,14 @@ import com.example.backend.dto.BookPageQueryDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BookLocation;
+import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
 import com.example.backend.entity.UserPreference;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
 import com.example.backend.mapper.BookMapper;
+import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.mapper.UserPreferenceMapper;
 import com.example.backend.service.BookService;
@@ -66,6 +70,11 @@ public class BookServiceImpl implements BookService {
 	private static final int NORMAL_USER_STATUS = 1;
 
 	/**
+	 * 评论审核通过状态。
+	 */
+	private static final int COMMENT_APPROVED_STATUS = 1;
+
+	/**
 	 * 默认每页条数。
 	 */
 	private static final long DEFAULT_SIZE = 10L;
@@ -80,6 +89,7 @@ public class BookServiceImpl implements BookService {
 	private final BookLocationMapper bookLocationMapper;
 	private final UserPreferenceMapper userPreferenceMapper;
 	private final UserMapper userMapper;
+	private final CommentMapper commentMapper;
 
 	/**
 	 * 分页查询图书信息。
@@ -114,16 +124,18 @@ public class BookServiceImpl implements BookService {
 		Page<Book> resultPage = bookMapper.selectPage(page, queryWrapper);
 		List<Book> books = resultPage.getRecords() == null ? List.of() : resultPage.getRecords();
 
-		// 批量查询分类名称，避免在组装列表时产生 N+1 查询。
-		Map<Long, String> categoryNameMap = resolveCategoryNameMap(books);
-		Map<Long, BookLocation> locationMap = resolveLatestLocationMap(books);
-		List<BookPageVO> records = books.stream()
-			.map((book) -> buildBookPageVO(
-				book,
-				categoryNameMap.get(book.getCategoryId()),
-				locationMap.get(book.getBookId())
-			))
-			.toList();
+			// 批量查询分类名称，避免在组装列表时产生 N+1 查询。
+			Map<Long, String> categoryNameMap = resolveCategoryNameMap(books);
+			Map<Long, BookLocation> locationMap = resolveLatestLocationMap(books);
+			Map<Long, BookRatingSummary> ratingSummaryMap = resolveBookRatingSummaryMap(books);
+			List<BookPageVO> records = books.stream()
+				.map((book) -> buildBookPageVO(
+					book,
+					categoryNameMap.get(book.getCategoryId()),
+					locationMap.get(book.getBookId()),
+					ratingSummaryMap.get(book.getBookId())
+				))
+				.toList();
 		return new PageResult<>(
 			records,
 			resultPage.getTotal(),
@@ -201,14 +213,53 @@ public class BookServiceImpl implements BookService {
 	}
 
 	/**
+	 * 批量统计图书评分信息。
+	 *
+	 * @param books 图书列表
+	 * @return 图书评分统计映射
+	 */
+	private Map<Long, BookRatingSummary> resolveBookRatingSummaryMap(List<Book> books) {
+		if (books == null || books.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Long> bookIds = books.stream()
+			.map(Book::getBookId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (bookIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+			.in(Comment::getBookId, bookIds)
+			.eq(Comment::getStatus, COMMENT_APPROVED_STATUS));
+		if (comments == null || comments.isEmpty()) {
+			return Map.of();
+		}
+
+		return comments.stream()
+			.filter((comment) -> comment.getBookId() != null)
+			.collect(Collectors.groupingBy(Comment::getBookId))
+			.entrySet()
+			.stream()
+			.collect(Collectors.toMap(
+				Map.Entry::getKey,
+				(entry) -> buildBookRatingSummary(entry.getValue())
+			));
+	}
+
+	/**
 	 * 构建图书分页返回对象。
 	 *
 	 * @param book 图书实体
 	 * @param categoryName 分类名称
 	 * @param location 位置信息
+	 * @param ratingSummary 评分统计
 	 * @return 图书分页返回对象
 	 */
-	private BookPageVO buildBookPageVO(Book book, String categoryName, BookLocation location) {
+	private BookPageVO buildBookPageVO(Book book, String categoryName, BookLocation location, BookRatingSummary ratingSummary) {
 		BookPageVO bookPageVO = new BookPageVO();
 		if (book != null) {
 			BeanUtils.copyProperties(book, bookPageVO);
@@ -219,6 +270,10 @@ public class BookServiceImpl implements BookService {
 			bookPageVO.setArea(location.getArea());
 			bookPageVO.setShelfNo(location.getShelfNo());
 			bookPageVO.setLayer(location.getLayer());
+		}
+		if (ratingSummary != null) {
+			bookPageVO.setAverageRating(ratingSummary.getAverageRating());
+			bookPageVO.setRatingCount(ratingSummary.getRatingCount());
 		}
 		return bookPageVO;
 	}
@@ -285,16 +340,18 @@ public class BookServiceImpl implements BookService {
 			.limit(normalizedLimit)
 			.toList();
 
-		Map<Long, String> categoryNameMap = resolveCategoryNameMap(recommendedBooks);
-		Map<Long, BookLocation> locationMap = resolveLatestLocationMap(recommendedBooks);
-		return recommendedBooks.stream()
-			.map((book) -> buildBookPageVO(
-				book,
-				categoryNameMap.get(book.getCategoryId()),
-				locationMap.get(book.getBookId())
-			))
-			.toList();
-	}
+			Map<Long, String> categoryNameMap = resolveCategoryNameMap(recommendedBooks);
+			Map<Long, BookLocation> locationMap = resolveLatestLocationMap(recommendedBooks);
+			Map<Long, BookRatingSummary> ratingSummaryMap = resolveBookRatingSummaryMap(recommendedBooks);
+			return recommendedBooks.stream()
+				.map((book) -> buildBookPageVO(
+					book,
+					categoryNameMap.get(book.getCategoryId()),
+					locationMap.get(book.getBookId()),
+					ratingSummaryMap.get(book.getBookId())
+				))
+				.toList();
+		}
 
 	/**
 	 * 查询分类名称。
@@ -444,6 +501,29 @@ public class BookServiceImpl implements BookService {
 	}
 
 	/**
+	 * 构建图书评分统计对象。
+	 *
+	 * @param comments 评论列表
+	 * @return 图书评分统计对象
+	 */
+	private BookRatingSummary buildBookRatingSummary(List<Comment> comments) {
+		if (comments == null || comments.isEmpty()) {
+			return new BookRatingSummary(BigDecimal.ZERO, 0);
+		}
+
+		double averageRating = comments.stream()
+			.map(Comment::getRating)
+			.filter(Objects::nonNull)
+			.mapToInt(Integer::intValue)
+			.average()
+			.orElse(0D);
+		return new BookRatingSummary(
+			BigDecimal.valueOf(averageRating).setScale(1, RoundingMode.HALF_UP),
+			comments.size()
+		);
+	}
+
+	/**
 	 * 规范化推荐数量。
 	 *
 	 * @param limit 原始数量
@@ -454,6 +534,51 @@ public class BookServiceImpl implements BookService {
 			return DEFAULT_RECOMMEND_LIMIT;
 		}
 		return Math.min(limit, MAX_RECOMMEND_LIMIT);
+	}
+
+	/**
+	 * 图书评分统计对象。
+	 */
+	private static class BookRatingSummary {
+
+		/**
+		 * 平均评分。
+		 */
+		private final BigDecimal averageRating;
+
+		/**
+		 * 评分人数。
+		 */
+		private final Integer ratingCount;
+
+		/**
+		 * 构造图书评分统计对象。
+		 *
+		 * @param averageRating 平均评分
+		 * @param ratingCount 评分人数
+		 */
+		private BookRatingSummary(BigDecimal averageRating, Integer ratingCount) {
+			this.averageRating = averageRating;
+			this.ratingCount = ratingCount;
+		}
+
+		/**
+		 * 获取平均评分。
+		 *
+		 * @return 平均评分
+		 */
+		private BigDecimal getAverageRating() {
+			return averageRating;
+		}
+
+		/**
+		 * 获取评分人数。
+		 *
+		 * @return 评分人数
+		 */
+		private Integer getRatingCount() {
+			return ratingCount;
+		}
 	}
 
 	/**

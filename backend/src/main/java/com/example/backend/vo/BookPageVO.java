@@ -4,6 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -129,6 +130,16 @@ public class BookPageVO {
 	 * 借阅次数。
 	 */
 	private Integer borrowCount;
+
+	/**
+	 * 图书平均评分。
+	 */
+	private BigDecimal averageRating;
+
+	/**
+	 * 评分人数。
+	 */
+	private Integer ratingCount;
 
 	/**
 	 * 状态：0下架，1上架。

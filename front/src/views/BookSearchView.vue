@@ -369,6 +369,22 @@ function resolveDifficultyType(difficultyLevel) {
 }
 
 /**
+ * 格式化图书评分文案。
+ *
+ * @param {object} book 图书对象
+ * @returns {string} 评分文案
+ */
+function formatBookRating(book) {
+  const ratingCount = Number(book?.ratingCount || 0)
+  if (ratingCount <= 0) {
+    return '暂无评分'
+  }
+
+  const averageRating = Number(book?.averageRating || 0)
+  return `${averageRating.toFixed(1)}（${ratingCount}人评分）`
+}
+
+/**
  * 解析评论展示名称。
  *
  * @param {object} comment 评论对象
@@ -501,6 +517,16 @@ function goPreferencePage() {
           <p class="book-card-author">{{ book.author || '未知作者' }} · {{ book.publisher || '未知出版社' }}</p>
           <p class="book-card-isbn">ISBN：{{ book.isbn || '暂无' }}</p>
           <p class="book-card-location">位置：{{ formatLocation(book) }}</p>
+          <div class="book-card-rating">
+            <el-rate
+              v-if="Number(book.ratingCount || 0) > 0"
+              :model-value="Number(book.averageRating || 0)"
+              disabled
+              allow-half
+              text-color="#f59e0b"
+            />
+            <span class="book-card-rating-text">{{ formatBookRating(book) }}</span>
+          </div>
           <p class="book-card-scene">适用场景：{{ book.suitableScene || '暂无' }}</p>
 
           <div class="book-card-tags">
