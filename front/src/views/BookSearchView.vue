@@ -642,7 +642,7 @@ function goPreferencePage() {
           </div>
         </div>
 
-        <el-empty v-else description="暂无审核通过评论" />
+        <el-empty v-else description="暂无评论" />
       </template>
     </div>
 

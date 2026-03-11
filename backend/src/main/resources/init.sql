@@ -35,7 +35,7 @@ INSERT INTO `user` (
   `status`
 ) VALUES
   (
-    'reader',
+    'zhangsan',
     '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
     '张三',
     'reader@library.local',
@@ -47,7 +47,7 @@ INSERT INTO `user` (
     1
   ),
   (
-    'librarian',
+    'lisi',
     '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
     '李四',
     'librarian@library.local',
