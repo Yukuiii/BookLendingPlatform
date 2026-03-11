@@ -4,12 +4,13 @@ import LoginView from '../views/LoginView.vue'
 import RegisterView from '../views/RegisterView.vue'
 import AdminLayout from '../layouts/AdminLayout.vue'
 import UserLayout from '../layouts/UserLayout.vue'
-import AnalysisView from '../views/AnalysisView.vue'
 import BookSearchView from '../views/BookSearchView.vue'
 import BorrowView from '../views/BorrowView.vue'
+import CommentView from '../views/CommentView.vue'
 import FavoriteView from '../views/FavoriteView.vue'
+import NotificationView from '../views/NotificationView.vue'
+import PreferenceView from '../views/PreferenceView.vue'
 import ProfileView from '../views/ProfileView.vue'
-import ReservationView from '../views/ReservationView.vue'
 import AdminBookLocationView from '../views/admin/AdminBookLocationView.vue'
 import AdminBookManageView from '../views/admin/AdminBookManageView.vue'
 import AdminBorrowManageView from '../views/admin/AdminBorrowManageView.vue'
@@ -54,14 +55,6 @@ const routes = [
         },
       },
       {
-        path: 'reservation',
-        name: 'reservation',
-        component: ReservationView,
-        meta: {
-          title: '我的预约',
-        },
-      },
-      {
         path: 'favorite',
         name: 'favorite',
         component: FavoriteView,
@@ -70,19 +63,35 @@ const routes = [
         },
       },
       {
-        path: 'analysis',
-        name: 'analysis',
-        component: AnalysisView,
-        meta: {
-          title: '借阅分析',
-        },
-      },
-      {
         path: 'profile',
         name: 'profile',
         component: ProfileView,
         meta: {
           title: '个人信息',
+        },
+      },
+      {
+        path: 'notifications',
+        name: 'notifications',
+        component: NotificationView,
+        meta: {
+          title: '信息通知',
+        },
+      },
+      {
+        path: 'comments',
+        name: 'comments',
+        component: CommentView,
+        meta: {
+          title: '我的评论',
+        },
+      },
+      {
+        path: 'preferences',
+        name: 'preferences',
+        component: PreferenceView,
+        meta: {
+          title: '个性化设置',
         },
       },
     ],

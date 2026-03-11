@@ -369,23 +369,6 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   CONSTRAINT `fk_borrow_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='借阅记录表';
 
-CREATE TABLE IF NOT EXISTS `reservation_record` (
-  `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '记录ID',
-  `user_id` BIGINT NOT NULL COMMENT '用户ID',
-  `book_id` BIGINT NOT NULL COMMENT '图书ID',
-  `reservation_date` DATETIME NOT NULL COMMENT '预约日期',
-  `expire_date` DATETIME NOT NULL COMMENT '预约失效日期',
-  `status` TINYINT NOT NULL COMMENT '状态：1预约中，2已借阅，3已取消，4已过期',
-  `queue_position` INT DEFAULT NULL COMMENT '队列位置',
-  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_reservation_record_user_id` (`user_id`),
-  KEY `idx_reservation_record_book_id` (`book_id`),
-  CONSTRAINT `fk_reservation_record_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`),
-  CONSTRAINT `fk_reservation_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='预约记录表';
-
 CREATE TABLE IF NOT EXISTS `collection_category` (
   `collection_category_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '收藏分类ID',
   `user_id` BIGINT NOT NULL COMMENT '用户ID',
@@ -474,6 +457,7 @@ SELECT `book_id`, 4, 'G', 'G-04', 2, 'RFID-000010' FROM `book` WHERE `isbn` = '9
 CREATE TABLE IF NOT EXISTS `comment` (
   `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '评论ID',
   `user_id` BIGINT NOT NULL COMMENT '发表评论的用户ID',
+  `borrow_id` BIGINT NOT NULL COMMENT '关联借阅记录ID',
   `book_id` BIGINT NOT NULL COMMENT '被评论的图书ID',
   `content` TEXT NOT NULL COMMENT '评论正文',
   `rating` TINYINT NOT NULL COMMENT '评分，1-5分',
@@ -483,7 +467,9 @@ CREATE TABLE IF NOT EXISTS `comment` (
   `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   KEY `idx_comment_user_id` (`user_id`),
+  UNIQUE KEY `uk_comment_borrow_id` (`borrow_id`),
   KEY `idx_comment_book_id` (`book_id`),
+  CONSTRAINT `fk_comment_borrow_id` FOREIGN KEY (`borrow_id`) REFERENCES `borrow_record` (`borrow_id`),
   CONSTRAINT `fk_comment_user_id` FOREIGN KEY (`user_id`) REFERENCES `user` (`name_id`),
   CONSTRAINT `fk_comment_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评论表';

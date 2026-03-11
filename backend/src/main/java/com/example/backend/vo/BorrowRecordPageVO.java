@@ -87,6 +87,21 @@ public class BorrowRecordPageVO {
 	private String coverUrl;
 
 	/**
+	 * 是否已评论。
+	 */
+	private Boolean commented;
+
+	/**
+	 * 评论ID。
+	 */
+	private Long commentId;
+
+	/**
+	 * 评论评分。
+	 */
+	private Integer commentRating;
+
+	/**
 	 * 借阅日期。
 	 */
 	private LocalDateTime borrowDate;
@@ -131,4 +146,3 @@ public class BorrowRecordPageVO {
 	 */
 	private LocalDateTime updateTime;
 }
-

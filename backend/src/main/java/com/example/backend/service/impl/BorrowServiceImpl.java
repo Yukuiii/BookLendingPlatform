@@ -9,12 +9,14 @@ import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BookLocation;
 import com.example.backend.entity.BorrowRecord;
+import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
 import com.example.backend.mapper.BookMapper;
 import com.example.backend.mapper.BorrowRecordMapper;
+import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.BorrowService;
 import com.example.backend.vo.BorrowRecordPageVO;
@@ -101,6 +103,7 @@ public class BorrowServiceImpl implements BorrowService {
 	private final UserMapper userMapper;
 	private final BookCategoryMapper bookCategoryMapper;
 	private final BookLocationMapper bookLocationMapper;
+	private final CommentMapper commentMapper;
 
 	/**
 	 * 立即借阅图书。
@@ -256,8 +259,9 @@ public class BorrowServiceImpl implements BorrowService {
 		Map<Long, Book> bookMap = resolveBookMap(records);
 		Map<Long, String> categoryNameMap = resolveCategoryNameMap(bookMap);
 		Map<Long, BookLocation> locationMap = resolveLatestLocationMap(bookMap);
+		Map<Long, Comment> commentMap = resolveCommentMap(userId, records);
 		List<BorrowRecordPageVO> pageRecords = records.stream()
-			.map((record) -> buildBorrowRecordPageVO(record, bookMap, categoryNameMap, locationMap))
+			.map((record) -> buildBorrowRecordPageVO(record, bookMap, categoryNameMap, locationMap, commentMap))
 			.toList();
 
 		return new PageResult<>(
@@ -515,6 +519,46 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
+	 * 批量查询借阅记录评论映射。
+	 *
+	 * @param userId 用户ID
+	 * @param records 借阅记录列表
+	 * @return 借阅记录ID到评论实体的映射
+	 */
+	private Map<Long, Comment> resolveCommentMap(Long userId, List<BorrowRecord> records) {
+		if (userId == null || userId <= 0 || records == null || records.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Long> borrowIds = records.stream()
+			.map(BorrowRecord::getBorrowId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (borrowIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+			.eq(Comment::getUserId, userId)
+			.in(Comment::getBorrowId, borrowIds)
+			.orderByDesc(Comment::getUpdateTime)
+			.orderByDesc(Comment::getId));
+		if (comments == null || comments.isEmpty()) {
+			return Map.of();
+		}
+
+		Map<Long, Comment> result = new java.util.HashMap<>();
+		for (Comment comment : comments) {
+			if (comment == null || comment.getBorrowId() == null) {
+				continue;
+			}
+			result.putIfAbsent(comment.getBorrowId(), comment);
+		}
+		return result;
+	}
+
+	/**
 	 * 构建借阅记录分页返回对象。
 	 *
 	 * @param record 借阅记录
@@ -527,9 +571,11 @@ public class BorrowServiceImpl implements BorrowService {
 		BorrowRecord record,
 		Map<Long, Book> bookMap,
 		Map<Long, String> categoryNameMap,
-		Map<Long, BookLocation> locationMap
+		Map<Long, BookLocation> locationMap,
+		Map<Long, Comment> commentMap
 	) {
 		BorrowRecordPageVO vo = new BorrowRecordPageVO();
+		vo.setCommented(false);
 		if (record != null) {
 			vo.setBorrowId(record.getBorrowId());
 			vo.setBookId(record.getBookId());
@@ -542,6 +588,14 @@ public class BorrowServiceImpl implements BorrowService {
 			vo.setFineAmount(record.getFineAmount());
 			vo.setCreateTime(record.getCreateTime());
 			vo.setUpdateTime(record.getUpdateTime());
+		}
+
+		Long borrowId = record == null ? null : record.getBorrowId();
+		Comment comment = borrowId == null || commentMap == null ? null : commentMap.get(borrowId);
+		if (comment != null) {
+			vo.setCommented(true);
+			vo.setCommentId(comment.getId());
+			vo.setCommentRating(comment.getRating());
 		}
 
 		Long bookId = record == null ? null : record.getBookId();

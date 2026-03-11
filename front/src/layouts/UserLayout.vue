@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Collection, DataAnalysis, Reading, Search, Star, User } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Reading, Search, Setting, Star, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import ConsoleFooter from '../components/layout/ConsoleFooter.vue'
@@ -39,10 +39,11 @@ onUnmounted(() => {
 const menuItems = [
   { key: 'books', label: '图书检索', icon: Search },
   { key: 'borrow', label: '我的借阅', icon: Reading },
-  { key: 'reservation', label: '我的预约', icon: Collection },
   { key: 'favorite', label: '我的收藏', icon: Star },
-  { key: 'analysis', label: '借阅分析', icon: DataAnalysis },
+  { key: 'notifications', label: '信息通知', icon: Bell },
+  { key: 'comments', label: '我的评论', icon: ChatDotRound },
   { key: 'profile', label: '个人信息', icon: User },
+  { key: 'preferences', label: '个性化设置', icon: Setting },
 ]
 
 const activeMenu = computed(() => {

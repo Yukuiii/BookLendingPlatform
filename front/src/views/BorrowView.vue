@@ -1,8 +1,9 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { pageMyBorrowRecords, returnBorrowBook } from '../api/borrow'
+import { createComment } from '../api/comment'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -11,14 +12,28 @@ import { formatDateTime, formatLocation } from '../utils/book'
 
 const loading = ref(false)
 const submitError = ref('')
+const commentDialogVisible = ref(false)
+const commentSubmitting = ref(false)
 const records = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const activeCommentRecord = ref(null)
 
 const queryForm = reactive({
   status: null,
 })
+
+const commentForm = reactive({
+  rating: 5,
+  content: '',
+})
+
+const commentRules = {
+  rating: [{ required: true, message: '请选择评分', trigger: 'change' }],
+}
+
+const commentFormRef = ref(null)
 
 const statusOptions = [
   { label: '借阅中', value: 1 },
@@ -129,6 +144,63 @@ async function handleReturn(record) {
 }
 
 /**
+ * 打开评论弹窗。
+ *
+ * @param {object} record 借阅记录对象
+ */
+async function openCommentDialog(record) {
+  if (!canCreateComment(record)) {
+    ElMessage.warning('当前借阅记录暂不可评论')
+    return
+  }
+
+  activeCommentRecord.value = record
+  commentForm.rating = 5
+  commentForm.content = ''
+  commentDialogVisible.value = true
+  await nextTick()
+  commentFormRef.value?.clearValidate()
+}
+
+/**
+ * 提交图书评论。
+ */
+async function handleCreateComment() {
+  try {
+    await commentFormRef.value?.validate()
+  } catch {
+    return
+  }
+
+  const borrowId = activeCommentRecord.value?.borrowId
+  const content = commentForm.content.trim()
+  if (!borrowId) {
+    ElMessage.warning('借阅记录不完整，暂无法评论')
+    return
+  }
+  if (!content) {
+    ElMessage.warning('请输入评论内容')
+    return
+  }
+
+  commentSubmitting.value = true
+  try {
+    await createComment({
+      borrowId,
+      rating: commentForm.rating,
+      content,
+    })
+    commentDialogVisible.value = false
+    ElMessage.success('评论提交成功')
+    await loadBorrowRecords()
+  } catch (error) {
+    ElMessage.error(error.message || '评论提交失败，请稍后重试')
+  } finally {
+    commentSubmitting.value = false
+  }
+}
+
+/**
  * 生成图书封面占位文本。
  *
  * @param {object} record 借阅记录对象
@@ -184,6 +256,30 @@ function resolveBorrowStatusType(status) {
  */
 function canReturnBook(status) {
   return status === 1 || status === 3
+}
+
+/**
+ * 判断当前记录是否允许评论。
+ *
+ * @param {object} record 借阅记录对象
+ * @returns {boolean} 是否允许评论
+ */
+function canCreateComment(record) {
+  return Number(record?.status) === 2 && record?.commented !== true
+}
+
+/**
+ * 获取评论按钮文案。
+ *
+ * @param {object} record 借阅记录对象
+ * @returns {string} 按钮文案
+ */
+function resolveCommentActionText(record) {
+  if (record?.commented) {
+    const rating = Number(record?.commentRating || 0)
+    return rating > 0 ? `已评论 ${rating} 分` : '已评论'
+  }
+  return '--'
 }
 </script>
 
@@ -275,10 +371,11 @@ function canReturnBook(status) {
         <template #default="{ row }">{{ row.fineAmount ?? 0 }}</template>
       </el-table-column>
 
-      <el-table-column label="操作" width="120" align="center" fixed="right">
+      <el-table-column label="操作" width="132" align="center" fixed="right">
         <template #default="{ row }">
           <el-button v-if="canReturnBook(row.status)" type="primary" link @click="handleReturn(row)">立即归还</el-button>
-          <span v-else class="borrow-action-placeholder">--</span>
+          <el-button v-else-if="canCreateComment(row)" type="warning" link @click="openCommentDialog(row)">立即评论</el-button>
+          <span v-else class="borrow-action-placeholder">{{ resolveCommentActionText(row) }}</span>
         </template>
       </el-table-column>
     </el-table>
@@ -296,4 +393,39 @@ function canReturnBook(status) {
       @size-change="handleSizeChange"
     />
   </div>
+
+  <el-dialog
+    v-model="commentDialogVisible"
+    width="520px"
+    title="发表图书评论"
+    destroy-on-close
+  >
+    <div class="comment-dialog-book">
+      <strong>{{ activeCommentRecord?.bookName || '当前图书' }}</strong>
+      <p>{{ activeCommentRecord?.author || '未知作者' }} · {{ activeCommentRecord?.publisher || '未知出版社' }}</p>
+    </div>
+
+    <el-form ref="commentFormRef" :model="commentForm" :rules="commentRules" label-width="72px">
+      <el-form-item label="评分" prop="rating">
+        <el-rate v-model="commentForm.rating" show-score />
+      </el-form-item>
+      <el-form-item label="评论内容">
+        <el-input
+          v-model="commentForm.content"
+          type="textarea"
+          :rows="5"
+          maxlength="1000"
+          show-word-limit
+          placeholder="请输入你的借阅体验、内容评价或推荐理由"
+        />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <div class="comment-dialog-footer">
+        <el-button @click="commentDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="commentSubmitting" @click="handleCreateComment">提交评论</el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>

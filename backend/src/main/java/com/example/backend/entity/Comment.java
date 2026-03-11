@@ -30,6 +30,11 @@ public class Comment {
 	private Long userId;
 
 	/**
+	 * 关联借阅记录ID。
+	 */
+	private Long borrowId;
+
+	/**
 	 * 被评论的图书ID。
 	 */
 	private Long bookId;
