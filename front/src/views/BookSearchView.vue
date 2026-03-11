@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 
 import { borrowBook } from '../api/borrow'
 import { getBookDetail, pageBooks } from '../api/book'
+import { collectBook } from '../api/collection'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -153,7 +154,20 @@ async function handleBorrow(book) {
  * @param {object} book 图书对象
  */
 function handleFavorite(book) {
-  ElMessage.success(`已为你准备《${book.bookName}》的收藏入口，后续可继续接收藏接口`)
+  if (!book?.bookId) {
+    ElMessage.warning('图书信息不完整，暂无法收藏')
+    return
+  }
+
+  collectBook({
+    bookId: book.bookId,
+  })
+    .then((result) => {
+      ElMessage.success(`已收藏到「${result?.collectionCategoryName || '默认收藏'}」`)
+    })
+    .catch((error) => {
+      ElMessage.error(error.message || '收藏失败，请稍后重试')
+    })
 }
 
 /**

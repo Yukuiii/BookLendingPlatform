@@ -31,6 +31,15 @@ public interface BorrowService {
 	ReturnBookVO returnBook(Long userId, Long borrowId);
 
 	/**
+	 * 管理端归还图书。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 归还结果
+	 */
+	ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId);
+
+	/**
 	 * 分页查询我的借阅记录。
 	 *
 	 * @param userId 用户ID

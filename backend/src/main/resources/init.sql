@@ -21,6 +21,56 @@ CREATE TABLE IF NOT EXISTS `user` (
   UNIQUE KEY `uk_user_phone` (`phone`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户表';
 
+-- 初始化默认用户账号（默认密码均为 123456）
+INSERT INTO `user` (
+  `username`,
+  `password`,
+  `real_name`,
+  `email`,
+  `phone`,
+  `identity_card`,
+  `major`,
+  `user_type`,
+  `max_borrow_count`,
+  `status`
+) VALUES
+  (
+    'reader',
+    '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
+    '张三',
+    'reader@library.local',
+    '13800000001',
+    '110101199001010011',
+    '计算机科学',
+    1,
+    5,
+    1
+  ),
+  (
+    'librarian',
+    '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
+    '李四',
+    'librarian@library.local',
+    '13800000002',
+    '110101199001010022',
+    '图书情报',
+    2,
+    10,
+    1
+  ),
+  (
+    'admin',
+    '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
+    '王五',
+    'admin@library.local',
+    '13800000003',
+    '110101199001010033',
+    '信息管理',
+    3,
+    10,
+    1
+  );
+
 CREATE TABLE IF NOT EXISTS `book` (
   `book_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '图书ID',
   `isbn` VARCHAR(20) NOT NULL COMMENT 'ISBN号',

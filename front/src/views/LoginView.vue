@@ -66,7 +66,8 @@ async function handleLoginSubmit() {
     })
     setCurrentUser(response.data)
     updateSubmitMessage(response.message || '登录成功', false)
-    await router.push({ name: 'books' })
+    const targetRouteName = Number(response.data?.userType) === 1 ? 'books' : 'admin-users'
+    await router.push({ name: targetRouteName })
   } catch (error) {
     updateSubmitMessage(error.message || '登录失败，请稍后重试', true)
   } finally {

@@ -31,6 +31,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -69,6 +70,11 @@ public class BorrowServiceImpl implements BorrowService {
 	 * 用户正常状态。
 	 */
 	private static final int NORMAL_USER_STATUS = 1;
+
+	/**
+	 * 管理员角色集合。
+	 */
+	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
 
 	/**
 	 * 图书上架状态。
@@ -197,49 +203,24 @@ public class BorrowServiceImpl implements BorrowService {
 		}
 
 		requireAvailableUser(userId);
-		BorrowRecord borrowRecord = borrowRecordMapper.selectById(borrowId);
-		if (borrowRecord == null) {
-			throw new BusinessException("借阅记录不存在");
-		}
-		if (!Objects.equals(borrowRecord.getUserId(), userId)) {
-			throw new BusinessException("无权归还该借阅记录");
-		}
-		if (Objects.equals(borrowRecord.getStatus(), RETURNED_STATUS)) {
-			throw new BusinessException("该图书已归还，请勿重复操作");
-		}
-		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)
-			&& !Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
-			throw new BusinessException("当前借阅记录状态不支持归还");
-		}
+		return executeReturnBook(userId, borrowId, false);
+	}
 
-		Book book = bookMapper.selectById(borrowRecord.getBookId());
-		if (book == null) {
-			throw new BusinessException("关联图书不存在，暂无法归还");
+	/**
+	 * 管理端归还图书。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @param borrowId 借阅记录ID
+	 * @return 归还结果
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId) {
+		requireAdminUser(adminUserId);
+		if (borrowId == null || borrowId <= 0) {
+			throw new BusinessException("借阅记录ID不合法");
 		}
-
-		LocalDateTime now = LocalDateTime.now();
-		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), now);
-
-		// 先回补库存，再更新借阅记录，确保归还成功后图书立即恢复可借数量。
-		bookMapper.update(null, new LambdaUpdateWrapper<Book>()
-			.eq(Book::getBookId, borrowRecord.getBookId())
-			.setSql("available_count = IFNULL(available_count, 0) + 1"));
-
-		borrowRecord.setReturnDate(now);
-		borrowRecord.setStatus(RETURNED_STATUS);
-		borrowRecord.setOverdueDays(overdueDays);
-		borrowRecord.setFineAmount(normalizeFineAmount(borrowRecord.getFineAmount()));
-		borrowRecord.setUpdateTime(now);
-		borrowRecordMapper.updateById(borrowRecord);
-
-		return new ReturnBookVO(
-			borrowRecord.getBorrowId(),
-			borrowRecord.getBookId(),
-			borrowRecord.getReturnDate(),
-			borrowRecord.getOverdueDays(),
-			borrowRecord.getFineAmount(),
-			borrowRecord.getStatus()
-		);
+		return executeReturnBook(adminUserId, borrowId, true);
 	}
 
 	/**
@@ -303,6 +284,74 @@ public class BorrowServiceImpl implements BorrowService {
 			throw new BusinessException("当前账号已被禁用，无法执行该操作");
 		}
 		return user;
+	}
+
+	/**
+	 * 校验管理员身份。
+	 *
+	 * @param userId 用户ID
+	 * @return 管理员实体
+	 */
+	private User requireAdminUser(Long userId) {
+		User user = requireAvailableUser(userId);
+		if (!ADMIN_USER_TYPES.contains(user.getUserType())) {
+			throw new BusinessException("当前用户无管理权限");
+		}
+		return user;
+	}
+
+	/**
+	 * 执行归还图书流程。
+	 *
+	 * @param operatorUserId 操作人ID
+	 * @param borrowId 借阅记录ID
+	 * @param ignoreOwner 是否忽略归属校验
+	 * @return 归还结果
+	 */
+	private ReturnBookVO executeReturnBook(Long operatorUserId, Long borrowId, boolean ignoreOwner) {
+		BorrowRecord borrowRecord = borrowRecordMapper.selectById(borrowId);
+		if (borrowRecord == null) {
+			throw new BusinessException("借阅记录不存在");
+		}
+		if (!ignoreOwner && !Objects.equals(borrowRecord.getUserId(), operatorUserId)) {
+			throw new BusinessException("无权归还该借阅记录");
+		}
+		if (Objects.equals(borrowRecord.getStatus(), RETURNED_STATUS)) {
+			throw new BusinessException("该图书已归还，请勿重复操作");
+		}
+		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)
+			&& !Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
+			throw new BusinessException("当前借阅记录状态不支持归还");
+		}
+
+		Book book = bookMapper.selectById(borrowRecord.getBookId());
+		if (book == null) {
+			throw new BusinessException("关联图书不存在，暂无法归还");
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), now);
+
+		// 先回补库存，再更新借阅记录，确保归还成功后图书立即恢复可借数量。
+		bookMapper.update(null, new LambdaUpdateWrapper<Book>()
+			.eq(Book::getBookId, borrowRecord.getBookId())
+			.setSql("available_count = IFNULL(available_count, 0) + 1"));
+
+		borrowRecord.setReturnDate(now);
+		borrowRecord.setStatus(RETURNED_STATUS);
+		borrowRecord.setOverdueDays(overdueDays);
+		borrowRecord.setFineAmount(normalizeFineAmount(borrowRecord.getFineAmount()));
+		borrowRecord.setUpdateTime(now);
+		borrowRecordMapper.updateById(borrowRecord);
+
+		return new ReturnBookVO(
+			borrowRecord.getBorrowId(),
+			borrowRecord.getBookId(),
+			borrowRecord.getReturnDate(),
+			borrowRecord.getOverdueDays(),
+			borrowRecord.getFineAmount(),
+			borrowRecord.getStatus()
+		);
 	}
 
 	/**

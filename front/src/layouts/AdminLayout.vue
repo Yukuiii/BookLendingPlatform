@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { Management, MapLocation, Reading, User } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Collection, DataAnalysis, Reading, Search, Star, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 import ConsoleFooter from '../components/layout/ConsoleFooter.vue'
@@ -11,13 +11,21 @@ import { USER_TYPE_OPTIONS } from '../constants/auth'
 import { clearCurrentUser, getCurrentUser, onCurrentUserChange } from '../utils/auth'
 
 /**
- * 用户端控制台布局壳，统一承载侧边栏、头部与内容区。
+ * 管理端控制台布局壳，统一承载菜单、头部与内容区。
  */
 
 const router = useRouter()
 const route = useRoute()
-
 const currentUser = ref(getCurrentUser())
+
+const menuItems = [
+  { key: 'admin-users', label: '用户管理', icon: User },
+  { key: 'admin-books', label: '图书管理', icon: Management },
+  { key: 'admin-locations', label: '位置管理', icon: MapLocation },
+  { key: 'admin-borrows', label: '借阅管理', icon: Reading },
+  { key: 'admin-profile', label: '个人信息', icon: User },
+]
+
 let disposeCurrentUserListener = null
 
 /**
@@ -36,26 +44,17 @@ onUnmounted(() => {
   disposeCurrentUserListener?.()
 })
 
-const menuItems = [
-  { key: 'books', label: '图书检索', icon: Search },
-  { key: 'borrow', label: '我的借阅', icon: Reading },
-  { key: 'reservation', label: '我的预约', icon: Collection },
-  { key: 'favorite', label: '我的收藏', icon: Star },
-  { key: 'analysis', label: '借阅分析', icon: DataAnalysis },
-  { key: 'profile', label: '个人信息', icon: User },
-]
-
 const activeMenu = computed(() => {
-  return typeof route.name === 'string' ? route.name : 'books'
+  return typeof route.name === 'string' ? route.name : 'admin-users'
 })
 
 const pageTitle = computed(() => {
-  return typeof route.meta?.title === 'string' ? route.meta.title : '图书借阅管理系统'
+  return typeof route.meta?.title === 'string' ? route.meta.title : '后台管理'
 })
 
 const pageSubtitle = computed(() => {
   const name = currentUser.value?.realName || currentUser.value?.username || ''
-  return name ? `欢迎回来，${name}` : '欢迎回来'
+  return name ? `当前管理账号：${name}` : '当前管理账号'
 })
 
 const userTypeLabel = computed(() => {
@@ -75,7 +74,7 @@ function handleMenuSelect(menuKey) {
  * 跳转到个人信息页。
  */
 function handleProfile() {
-  router.push({ name: 'profile' })
+  router.push({ name: 'admin-profile' })
 }
 
 /**
@@ -114,3 +113,4 @@ function handleLogout() {
     </el-container>
   </main>
 </template>
+

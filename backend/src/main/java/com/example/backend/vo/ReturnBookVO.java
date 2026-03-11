@@ -26,7 +26,7 @@ public class ReturnBookVO {
 	private Long bookId;
 
 	/**
-	 * 归还时间。
+	 * 实际归还时间。
 	 */
 	private LocalDateTime returnDate;
 
@@ -45,4 +45,3 @@ public class ReturnBookVO {
 	 */
 	private Integer status;
 }
-
