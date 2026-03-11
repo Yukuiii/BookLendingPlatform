@@ -369,6 +369,24 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   CONSTRAINT `fk_borrow_record_book_id` FOREIGN KEY (`book_id`) REFERENCES `book` (`book_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='借阅记录表';
 
+CREATE TABLE IF NOT EXISTS `notification_message` (
+  `notification_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '通知ID',
+  `user_id` BIGINT NOT NULL COMMENT '接收通知的用户ID',
+  `notification_type` TINYINT NOT NULL COMMENT '通知类型：1超期提醒',
+  `title` VARCHAR(100) NOT NULL COMMENT '通知标题',
+  `content` VARCHAR(500) NOT NULL COMMENT '通知内容',
+  `business_type` VARCHAR(32) NOT NULL COMMENT '业务类型',
+  `business_id` BIGINT NOT NULL COMMENT '业务ID',
+  `read_status` TINYINT DEFAULT 0 COMMENT '已读状态：0未读，1已读',
+  `read_time` DATETIME DEFAULT NULL COMMENT '阅读时间',
+  `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`notification_id`),
+  UNIQUE KEY `uk_notification_user_type_business` (`user_id`, `notification_type`, `business_type`, `business_id`),
+  KEY `idx_notification_user_read_status` (`user_id`, `read_status`),
+  KEY `idx_notification_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='通知消息表';
+
 CREATE TABLE IF NOT EXISTS `collection_category` (
   `collection_category_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '收藏分类ID',
   `user_id` BIGINT NOT NULL COMMENT '用户ID',

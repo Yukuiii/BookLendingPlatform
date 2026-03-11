@@ -964,6 +964,20 @@ select {
   white-space: pre-wrap;
 }
 
+.notification-content {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.notification-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .preference-summary {
   display: grid;
   gap: 16px;

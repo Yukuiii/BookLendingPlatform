@@ -31,6 +31,7 @@ import com.example.backend.mapper.BorrowRecordMapper;
 import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.BorrowService;
+import com.example.backend.service.NotificationService;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
@@ -122,6 +123,7 @@ public class BorrowServiceImpl implements BorrowService {
 	private final BookCategoryMapper bookCategoryMapper;
 	private final BookLocationMapper bookLocationMapper;
 	private final CommentMapper commentMapper;
+	private final NotificationService notificationService;
 
 	/**
 	 * 提交借阅申请。
@@ -576,6 +578,7 @@ public class BorrowServiceImpl implements BorrowService {
 		}
 
 		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), currentTime);
+		int currentStatus = borrowRecord.getStatus() == null ? BORROWING_STATUS : borrowRecord.getStatus();
 		int targetStatus = overdueDays > 0 ? OVERDUE_STATUS : BORROWING_STATUS;
 		BigDecimal targetFineAmount = calculateFineAmount(overdueDays);
 		int currentOverdueDays = borrowRecord.getOverdueDays() == null ? 0 : borrowRecord.getOverdueDays();
@@ -593,6 +596,33 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setFineAmount(targetFineAmount);
 		borrowRecord.setUpdateTime(currentTime);
 		borrowRecordMapper.updateById(borrowRecord);
+
+		// 仅在借阅记录首次进入超期状态时发送一次提醒，避免重复打扰用户。
+		if (!Objects.equals(currentStatus, OVERDUE_STATUS) && Objects.equals(targetStatus, OVERDUE_STATUS)) {
+			sendBorrowOverdueNotification(borrowRecord, overdueDays, targetFineAmount);
+		}
+	}
+
+	/**
+	 * 发送借阅超期提醒通知。
+	 *
+	 * @param borrowRecord 借阅记录
+	 * @param overdueDays 超期天数
+	 * @param fineAmount 罚款金额
+	 */
+	private void sendBorrowOverdueNotification(BorrowRecord borrowRecord, int overdueDays, BigDecimal fineAmount) {
+		if (borrowRecord == null || borrowRecord.getUserId() == null) {
+			return;
+		}
+
+		Book book = bookMapper.selectById(borrowRecord.getBookId());
+		notificationService.createBorrowOverdueNotification(
+			borrowRecord.getUserId(),
+			borrowRecord.getBorrowId(),
+			book == null ? null : book.getBookName(),
+			overdueDays,
+			fineAmount
+		);
 	}
 
 	/**
