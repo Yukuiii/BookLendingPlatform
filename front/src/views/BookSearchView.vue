@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 
 import { borrowBook } from '../api/borrow'
 import { getBookDetail, listRecommendedBooks, pageBooks } from '../api/book'
+import { listApprovedBookComments } from '../api/comment'
 import { collectBook, listMyCollectionCategories } from '../api/collection'
 import { formatDateTime, formatLocation } from '../utils/book'
 
@@ -28,6 +29,9 @@ const detailDialogVisible = ref(false)
 const detailLoading = ref(false)
 const detailError = ref('')
 const detailBook = ref(null)
+const detailCommentsLoading = ref(false)
+const detailCommentsError = ref('')
+const detailComments = ref([])
 const favoriteDialogVisible = ref(false)
 const favoriteCategoryLoading = ref(false)
 const favoriteSaving = ref(false)
@@ -214,15 +218,30 @@ async function handleViewDetail(book) {
   detailLoading.value = true
   detailError.value = ''
   detailBook.value = null
+  detailCommentsLoading.value = true
+  detailCommentsError.value = ''
+  detailComments.value = []
 
-  try {
-    detailBook.value = await getBookDetail(bookId)
-  } catch (error) {
-    detailError.value = error.message || '图书详情加载失败，请稍后重试'
+  const [detailResult, commentResult] = await Promise.allSettled([
+    getBookDetail(bookId),
+    listApprovedBookComments(bookId),
+  ])
+
+  if (detailResult.status === 'fulfilled') {
+    detailBook.value = detailResult.value
+  } else {
+    detailError.value = detailResult.reason?.message || '图书详情加载失败，请稍后重试'
     ElMessage.error(detailError.value)
-  } finally {
-    detailLoading.value = false
   }
+
+  if (commentResult.status === 'fulfilled') {
+    detailComments.value = commentResult.value || []
+  } else {
+    detailCommentsError.value = commentResult.reason?.message || '图书评论加载失败，请稍后重试'
+  }
+
+  detailLoading.value = false
+  detailCommentsLoading.value = false
 }
 
 /**
@@ -232,6 +251,9 @@ function resetDetailState() {
   detailLoading.value = false
   detailError.value = ''
   detailBook.value = null
+  detailCommentsLoading.value = false
+  detailCommentsError.value = ''
+  detailComments.value = []
 }
 
 /**
@@ -344,6 +366,16 @@ function resolveDifficultyType(difficultyLevel) {
     return 'danger'
   }
   return 'info'
+}
+
+/**
+ * 解析评论展示名称。
+ *
+ * @param {object} comment 评论对象
+ * @returns {string} 展示名称
+ */
+function resolveCommentDisplayName(comment) {
+  return comment?.realName || comment?.username || '匿名读者'
 }
 
 /**
@@ -576,6 +608,41 @@ function goPreferencePage() {
 
         <h3 class="book-detail-section-title">作者简介</h3>
         <p class="book-detail-text">{{ detailBook.authorIntro || '暂无作者简介' }}</p>
+
+        <el-divider />
+
+        <div class="book-detail-comment-head">
+          <h3 class="book-detail-section-title">读者评论</h3>
+          <span class="book-detail-comment-count">已展示 {{ detailComments.length }} 条审核通过评论</span>
+        </div>
+
+        <el-alert
+          v-if="detailCommentsError"
+          :closable="false"
+          type="warning"
+          :title="detailCommentsError"
+          show-icon
+        />
+
+        <div v-else-if="detailCommentsLoading" class="book-detail-comment-skeleton">
+          <el-skeleton :rows="3" animated />
+        </div>
+
+        <div v-else-if="detailComments.length" class="book-detail-comment-list">
+          <div v-for="comment in detailComments" :key="comment.commentId" class="book-detail-comment-item">
+            <div class="book-detail-comment-meta">
+              <div class="book-detail-comment-user-wrap">
+                <strong>{{ resolveCommentDisplayName(comment) }}</strong>
+                <span v-if="comment.username && comment.realName" class="book-detail-comment-user">@{{ comment.username }}</span>
+              </div>
+              <span class="book-detail-comment-time">{{ formatDateTime(comment.createTime) }}</span>
+            </div>
+            <el-rate :model-value="comment.rating || 0" disabled show-score text-color="#f59e0b" />
+            <p class="book-detail-text">{{ comment.content || '暂无评论内容' }}</p>
+          </div>
+        </div>
+
+        <el-empty v-else description="暂无审核通过评论" />
       </template>
     </div>
 

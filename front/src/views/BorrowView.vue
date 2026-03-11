@@ -226,7 +226,7 @@ async function handleCreateComment() {
       content,
     })
     commentDialogVisible.value = false
-    ElMessage.success('评论提交成功')
+    ElMessage.success('评论提交成功，等待管理员审核')
     await loadBorrowRecords()
   } catch (error) {
     ElMessage.error(error.message || '评论提交失败，请稍后重试')

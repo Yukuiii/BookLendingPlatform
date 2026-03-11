@@ -23,7 +23,7 @@ const queryForm = reactive({
 })
 
 const statusOptions = [
-  { label: '正常', value: 1 },
+  { label: '审核通过', value: 1 },
   { label: '审核中', value: 2 },
   { label: '已隐藏', value: 0 },
 ]
@@ -133,7 +133,7 @@ function resolveCommentStatusLabel(status) {
     return '已隐藏'
   }
   if (status === 1) {
-    return '正常'
+    return '审核通过'
   }
   if (status === 2) {
     return '审核中'
@@ -167,7 +167,7 @@ function resolveCommentStatusType(status) {
       <div class="home-section-header">
         <div>
           <strong>评论管理</strong>
-          <p>查看用户评论，并维护评论的显示、隐藏与审核中状态</p>
+          <p>查看用户评论，并维护评论的审核通过、隐藏与审核中状态</p>
         </div>
         <el-button type="primary" plain @click="handleSearch">刷新列表</el-button>
       </div>

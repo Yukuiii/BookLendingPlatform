@@ -1116,6 +1116,61 @@ select {
   white-space: pre-wrap;
 }
 
+.book-detail-comment-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.book-detail-comment-count {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.book-detail-comment-skeleton {
+  margin-top: 12px;
+}
+
+.book-detail-comment-list {
+  display: grid;
+  gap: 12px;
+}
+
+.book-detail-comment-item {
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.book-detail-comment-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.book-detail-comment-user-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #111827;
+  font-size: 13px;
+}
+
+.book-detail-comment-user {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.book-detail-comment-time {
+  color: #9ca3af;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
 .book-card-tags {
   display: flex;
   flex-wrap: wrap;

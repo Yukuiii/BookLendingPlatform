@@ -80,7 +80,7 @@ public class CommentPageVO {
 	private Integer likeCount;
 
 	/**
-	 * 评论状态：0隐藏，1显示，2审核中。
+	 * 评论状态：0隐藏，1审核通过，2审核中。
 	 */
 	private Integer status;
 

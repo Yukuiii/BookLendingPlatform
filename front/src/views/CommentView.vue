@@ -87,7 +87,7 @@ function resolveCommentStatusLabel(status) {
     return '已隐藏'
   }
   if (status === 1) {
-    return '正常'
+    return '审核通过'
   }
   if (status === 2) {
     return '审核中'
@@ -121,7 +121,7 @@ function resolveCommentStatusType(status) {
       <div class="home-section-header">
         <div>
           <strong>我的评论</strong>
-          <p>查看你对已归还图书提交过的评论记录</p>
+          <p>查看你对已归还图书提交过的评论记录及审核状态</p>
         </div>
         <el-button type="primary" plain @click="loadComments">刷新列表</el-button>
       </div>

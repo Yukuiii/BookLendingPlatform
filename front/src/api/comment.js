@@ -14,6 +14,18 @@ export function createComment(payload) {
 }
 
 /**
+ * 查询图书审核通过的评论列表。
+ *
+ * @param {number|string} bookId 图书ID
+ * @returns {Promise<any[]>} 评论列表
+ */
+export function listApprovedBookComments(bookId) {
+  return request(`/comments/book/${encodeURIComponent(bookId)}/approved`, {
+    method: 'GET',
+  })
+}
+
+/**
  * 分页查询我的评论。
  *
  * @param {{current?: number, size?: number}} params 查询参数

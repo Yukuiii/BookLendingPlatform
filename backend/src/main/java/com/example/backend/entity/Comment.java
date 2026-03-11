@@ -55,7 +55,7 @@ public class Comment {
 	private Integer likeCount;
 
 	/**
-	 * 状态：0隐藏，1显示，2审核中。
+	 * 状态：0隐藏，1审核通过，2审核中。
 	 */
 	private Integer status;
 

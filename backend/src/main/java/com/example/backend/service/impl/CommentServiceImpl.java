@@ -26,6 +26,7 @@ import com.example.backend.mapper.BorrowRecordMapper;
 import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.CommentService;
+import com.example.backend.vo.BookCommentVO;
 import com.example.backend.vo.CommentPageVO;
 import com.example.backend.vo.PageResult;
 
@@ -64,9 +65,14 @@ public class CommentServiceImpl implements CommentService {
 	private static final int RETURNED_BORROW_STATUS = 2;
 
 	/**
-	 * 评论显示状态。
+	 * 评论审核通过状态。
 	 */
 	private static final int COMMENT_VISIBLE_STATUS = 1;
+
+	/**
+	 * 评论审核中状态。
+	 */
+	private static final int COMMENT_PENDING_STATUS = 2;
 
 	/**
 	 * 最大评论长度。
@@ -111,13 +117,40 @@ public class CommentServiceImpl implements CommentService {
 		comment.setContent(requestDTO.getContent().trim());
 		comment.setRating(requestDTO.getRating());
 		comment.setLikeCount(0);
-		comment.setStatus(COMMENT_VISIBLE_STATUS);
+		comment.setStatus(COMMENT_PENDING_STATUS);
 		comment.setCreateTime(now);
 		comment.setUpdateTime(now);
 		commentMapper.insert(comment);
 
 		String categoryName = resolveCategoryName(book.getCategoryId());
 		return buildCommentPageVO(comment, book, categoryName);
+	}
+
+	/**
+	 * 查询图书审核通过的评论列表。
+	 *
+	 * @param bookId 图书ID
+	 * @return 评论列表
+	 */
+	@Override
+	public List<BookCommentVO> listApprovedBookComments(Long bookId) {
+		if (bookId == null || bookId <= 0) {
+			throw new BusinessException("图书ID不合法");
+		}
+
+		requireBook(bookId);
+		List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
+			.eq(Comment::getBookId, bookId)
+			.eq(Comment::getStatus, COMMENT_VISIBLE_STATUS)
+			.orderByDesc(Comment::getCreateTime)
+			.orderByDesc(Comment::getId));
+		if (comments == null || comments.isEmpty()) {
+			return List.of();
+		}
+		Map<Long, User> userMap = resolveUserMap(comments);
+		return comments.stream()
+			.map((comment) -> buildBookCommentVO(comment, userMap.get(comment.getUserId())))
+			.toList();
 	}
 
 	/**
@@ -271,6 +304,36 @@ public class CommentServiceImpl implements CommentService {
 	}
 
 	/**
+	 * 批量查询用户映射。
+	 *
+	 * @param comments 评论列表
+	 * @return 用户映射
+	 */
+	private Map<Long, User> resolveUserMap(List<Comment> comments) {
+		if (comments == null || comments.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Long> userIds = comments.stream()
+			.map(Comment::getUserId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (userIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<User> users = userMapper.selectByIds(userIds);
+		if (users == null || users.isEmpty()) {
+			return Map.of();
+		}
+
+		return users.stream()
+			.filter(Objects::nonNull)
+			.collect(Collectors.toMap(User::getNameId, (user) -> user, (existing, ignored) -> existing));
+	}
+
+	/**
 	 * 批量查询分类名称映射。
 	 *
 	 * @param bookMap 图书映射
@@ -366,6 +429,32 @@ public class CommentServiceImpl implements CommentService {
 			vo.setCategoryId(book.getCategoryId());
 			vo.setCategoryName(categoryName);
 			vo.setCoverUrl(book.getCoverUrl());
+		}
+		return vo;
+	}
+
+	/**
+	 * 构建图书详情评论返回对象。
+	 *
+	 * @param comment 评论实体
+	 * @param user 用户实体
+	 * @return 图书详情评论返回对象
+	 */
+	private BookCommentVO buildBookCommentVO(Comment comment, User user) {
+		BookCommentVO vo = new BookCommentVO();
+		if (comment == null) {
+			return vo;
+		}
+
+		vo.setCommentId(comment.getId());
+		vo.setUserId(comment.getUserId());
+		vo.setContent(comment.getContent());
+		vo.setRating(comment.getRating());
+		vo.setLikeCount(comment.getLikeCount());
+		vo.setCreateTime(comment.getCreateTime());
+		if (user != null) {
+			vo.setUsername(user.getUsername());
+			vo.setRealName(user.getRealName());
 		}
 		return vo;
 	}
