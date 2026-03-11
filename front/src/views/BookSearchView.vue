@@ -1,10 +1,10 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
-import { DataAnalysis } from '@element-plus/icons-vue'
+import { onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { borrowBook } from '../api/borrow'
-import { getBookDetail, pageBooks } from '../api/book'
+import { getBookDetail, listRecommendedBooks, pageBooks } from '../api/book'
 import { collectBook, listMyCollectionCategories } from '../api/collection'
 import { formatDateTime, formatLocation } from '../utils/book'
 
@@ -12,12 +12,17 @@ import { formatDateTime, formatLocation } from '../utils/book'
  * 图书检索页面，负责筛选与展示图书分页数据。
  */
 
+const router = useRouter()
+
 const loading = ref(false)
 const submitError = ref('')
 const books = ref([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(8)
+const recommendationLoading = ref(false)
+const recommendationError = ref('')
+const recommendations = ref([])
 
 const detailDialogVisible = ref(false)
 const detailLoading = ref(false)
@@ -45,25 +50,22 @@ const statusOptions = [
   { label: '已下架', value: 0 },
 ]
 
-const statisticCards = computed(() => {
-  const availableCopies = books.value.reduce((totalCount, currentBook) => totalCount + (currentBook.availableCount || 0), 0)
-  const currentPageBorrowCount = books.value.reduce((totalCount, currentBook) => totalCount + (currentBook.borrowCount || 0), 0)
-  const onShelfCount = books.value.filter((currentBook) => currentBook.status === 1).length
-
-  return [
-    { label: '图书总量', value: total.value, helper: '匹配当前筛选条件的图书总数' },
-    { label: '本页在架', value: onShelfCount, helper: '当前页面中可检索到的上架图书' },
-    { label: '可借册数', value: availableCopies, helper: '当前页图书可借库存总和' },
-    { label: '借阅热度', value: currentPageBorrowCount, helper: '当前页图书累计借阅次数' },
-  ]
-})
-
 /**
  * 页面挂载后初始化图书数据。
  */
 onMounted(() => {
-  loadBooks()
+  loadHomeData()
 })
+
+/**
+ * 初始化首页数据。
+ */
+async function loadHomeData() {
+  await Promise.all([
+    loadBooks(),
+    loadRecommendations(),
+  ])
+}
 
 /**
  * 加载图书分页数据。
@@ -88,6 +90,22 @@ async function loadBooks() {
     ElMessage.error(submitError.value)
   } finally {
     loading.value = false
+  }
+}
+
+/**
+ * 加载猜你喜欢图书。
+ */
+async function loadRecommendations() {
+  recommendationLoading.value = true
+  recommendationError.value = ''
+
+  try {
+    recommendations.value = await listRecommendedBooks(4)
+  } catch (error) {
+    recommendationError.value = error.message || '猜你喜欢加载失败，请稍后重试'
+  } finally {
+    recommendationLoading.value = false
   }
 }
 
@@ -149,7 +167,10 @@ async function handleBorrow(book) {
     const isPending = Number(result?.status) === 4
     ElMessage.success(isPending ? '借阅申请已提交，等待图书管理员审核' : dueDate ? `借阅成功，应还日期：${dueDate}` : '借阅成功')
 
-    await loadBooks()
+    await Promise.all([
+      loadBooks(),
+      loadRecommendations(),
+    ])
 
     if (detailDialogVisible.value && detailBook.value?.bookId === bookId) {
       detailBook.value = await getBookDetail(bookId)
@@ -324,21 +345,76 @@ function resolveDifficultyType(difficultyLevel) {
   }
   return 'info'
 }
+
+/**
+ * 跳转到个性化设置页面。
+ */
+function goPreferencePage() {
+  router.push({ name: 'preferences' })
+}
 </script>
 
 <template>
-  <el-row :gutter="16" class="home-stat-row">
-    <el-col v-for="card in statisticCards" :key="card.label" :xs="24" :sm="12" :xl="6">
-      <el-card class="home-stat-card" shadow="hover">
-        <div class="home-stat-card-head">
-          <span class="home-stat-card-label">{{ card.label }}</span>
-          <el-icon><DataAnalysis /></el-icon>
+  <el-card class="home-recommend-card" shadow="never">
+    <template #header>
+      <div class="home-section-header">
+        <div>
+          <strong>猜你喜欢</strong>
+          <p>根据你的个性化设置推荐当前可借的图书</p>
         </div>
-        <strong class="home-stat-card-value">{{ card.value }}</strong>
-        <p class="home-stat-card-helper">{{ card.helper }}</p>
-      </el-card>
-    </el-col>
-  </el-row>
+        <el-button type="primary" plain @click="goPreferencePage">个性化设置</el-button>
+      </div>
+    </template>
+
+    <el-alert
+      v-if="recommendationError"
+      class="home-alert"
+      :closable="false"
+      type="warning"
+      :title="recommendationError"
+      show-icon
+    />
+
+    <div v-loading="recommendationLoading" class="home-recommend-grid">
+      <template v-if="recommendations.length">
+        <el-card v-for="book in recommendations" :key="`recommend-${book.bookId}`" class="home-recommend-item" shadow="hover">
+          <div class="home-recommend-body">
+            <el-image v-if="book.coverUrl" :src="book.coverUrl" fit="cover" class="home-recommend-cover">
+              <template #error>
+                <div class="home-recommend-cover home-recommend-cover--placeholder">{{ buildCoverPlaceholder(book) }}</div>
+              </template>
+            </el-image>
+            <div v-else class="home-recommend-cover home-recommend-cover--placeholder">{{ buildCoverPlaceholder(book) }}</div>
+
+            <div class="home-recommend-info">
+              <strong class="home-recommend-title">{{ book.bookName || '未知图书' }}</strong>
+              <p class="home-recommend-meta">{{ book.author || '未知作者' }} · {{ book.publisher || '未知出版社' }}</p>
+              <p class="home-recommend-meta">位置：{{ formatLocation(book) }}</p>
+
+              <div class="home-recommend-tags">
+                <el-tag v-if="book.categoryName" effect="plain" size="small">{{ book.categoryName }}</el-tag>
+                <el-tag effect="plain" size="small">{{ resolveSubField(book) }}</el-tag>
+                <el-tag effect="light" size="small" :type="resolveDifficultyType(book.difficultyLevel)">
+                  {{ resolveDifficultyLabel(book.difficultyLevel) }}
+                </el-tag>
+              </div>
+
+              <div class="home-recommend-actions">
+                <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
+                <el-button type="warning" size="small" :disabled="book.status !== 1 || !(book.availableCount > 0)" @click="handleBorrow(book)">
+                  立即借阅
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </template>
+
+      <el-empty v-else description="暂无推荐图书">
+        <el-button type="primary" plain @click="goPreferencePage">去设置偏好</el-button>
+      </el-empty>
+    </div>
+  </el-card>
 
   <el-card class="home-filter-card" shadow="never">
     <template #header>

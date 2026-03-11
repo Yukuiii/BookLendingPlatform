@@ -5,6 +5,8 @@ import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.PageResult;
 
+import java.util.List;
+
 /**
  * 图书服务接口。
  */
@@ -25,4 +27,13 @@ public interface BookService {
 	 * @return 图书详情
 	 */
 	BookDetailVO getBookDetail(Long bookId);
+
+	/**
+	 * 查询当前用户猜你喜欢图书。
+	 *
+	 * @param userId 用户ID
+	 * @param limit 返回条数
+	 * @return 推荐图书列表
+	 */
+	List<BookPageVO> listRecommendBooks(Long userId, Integer limit);
 }

@@ -35,3 +35,23 @@ export function getBookDetail(bookId) {
     method: 'GET',
   })
 }
+
+/**
+ * 查询当前用户猜你喜欢图书。
+ *
+ * @param {number} limit 返回条数
+ * @returns {Promise<any[]>} 推荐图书列表
+ */
+export function listRecommendedBooks(limit = 4) {
+  const searchParams = new URLSearchParams()
+  if (limit > 0) {
+    searchParams.append('limit', String(limit))
+  }
+
+  const queryString = searchParams.toString()
+  const requestPath = queryString ? `/books/recommendations?${queryString}` : '/books/recommendations'
+
+  return request(requestPath, {
+    method: 'GET',
+  })
+}

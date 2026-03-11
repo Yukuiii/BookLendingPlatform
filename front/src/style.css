@@ -661,6 +661,78 @@ select {
   line-height: 1.6;
 }
 
+.home-recommend-card {
+  border-radius: 16px;
+  margin-bottom: 16px;
+}
+
+.home-recommend-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.home-recommend-item {
+  border-radius: 16px;
+}
+
+.home-recommend-body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.home-recommend-cover {
+  width: 92px;
+  height: 124px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.home-recommend-cover--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #e0ecff 0%, #c7ddff 100%);
+  color: #1d4ed8;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.home-recommend-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.home-recommend-title {
+  display: block;
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.home-recommend-meta {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.home-recommend-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.home-recommend-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
 .home-filter-card {
   border-radius: 16px;
   margin-bottom: 16px;
@@ -886,6 +958,30 @@ select {
   white-space: pre-wrap;
 }
 
+.preference-summary {
+  display: grid;
+  gap: 16px;
+}
+
+.preference-summary-item {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.preference-summary-item strong {
+  display: block;
+  color: #111827;
+  font-size: 14px;
+}
+
+.preference-summary-item p {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1064,6 +1160,10 @@ select {
   .home-book-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .home-recommend-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1200px) {
@@ -1118,7 +1218,17 @@ select {
     grid-template-columns: 1fr;
   }
 
+  .home-recommend-grid {
+    grid-template-columns: 1fr;
+  }
+
   .book-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-recommend-body,
+  .home-recommend-actions {
     flex-direction: column;
     align-items: stretch;
   }
