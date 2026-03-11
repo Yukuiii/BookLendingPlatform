@@ -1,5 +1,17 @@
 package com.example.backend.service.impl;
 
+import java.time.LocalDate;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.BookPageQueryDTO;
@@ -18,18 +30,8 @@ import com.example.backend.service.BookService;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.PageResult;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.time.LocalDate;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 图书服务实现类。
@@ -151,7 +153,7 @@ public class BookServiceImpl implements BookService {
 			return Map.of();
 		}
 
-		return bookCategoryMapper.selectBatchIds(categoryIds).stream()
+		return bookCategoryMapper.selectByIds(categoryIds).stream()
 			.filter(Objects::nonNull)
 			.collect(Collectors.toMap(
 				BookCategory::getCategoryId,
@@ -273,7 +275,7 @@ public class BookServiceImpl implements BookService {
 		}
 
 		List<Book> recommendedBooks = books.stream()
-			// 用户有偏好时优先按偏好匹配，无偏好时直接按总借阅次数兜底，避免再混入“新书优先”的隐式策略。
+			// 用户有偏好时优先按偏好匹配，无偏好时直接按总借阅次数兜底
 			.sorted(Comparator
 				.comparingInt((Book book) -> calculateRecommendScore(book, preferFields, preferDifficulty, preferScenes, hasPersonalPreference))
 				.reversed()

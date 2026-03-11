@@ -1,5 +1,17 @@
 package com.example.backend.service.impl;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -23,18 +35,8 @@ import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.ReturnBookVO;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 借阅服务实现类。
@@ -523,7 +525,7 @@ public class BorrowServiceImpl implements BorrowService {
 			return Map.of();
 		}
 
-		List<Book> books = bookMapper.selectBatchIds(bookIds);
+		List<Book> books = bookMapper.selectByIds(bookIds);
 		if (books == null || books.isEmpty()) {
 			return Map.of();
 		}
@@ -553,7 +555,7 @@ public class BorrowServiceImpl implements BorrowService {
 			return Map.of();
 		}
 
-		List<BookCategory> categories = bookCategoryMapper.selectBatchIds(categoryIds);
+		List<BookCategory> categories = bookCategoryMapper.selectByIds(categoryIds);
 		if (categories == null || categories.isEmpty()) {
 			return Map.of();
 		}

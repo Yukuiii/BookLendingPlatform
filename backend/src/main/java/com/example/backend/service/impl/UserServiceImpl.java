@@ -1,5 +1,14 @@
 package com.example.backend.service.impl;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.AdminUserPageQueryDTO;
@@ -14,15 +23,8 @@ import com.example.backend.util.PasswordUtils;
 import com.example.backend.vo.AdminUserPageVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.UserProfileVO;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 用户服务实现类。
@@ -50,11 +52,6 @@ public class UserServiceImpl implements UserService {
 	 * 正常状态。
 	 */
 	private static final int NORMAL_STATUS = 1;
-
-	/**
-	 * 支持的管理员类型。
-	 */
-	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
 
 	/**
 	 * 支持的用户类型。
@@ -390,19 +387,6 @@ public class UserServiceImpl implements UserService {
 		return user;
 	}
 
-	/**
-	 * 校验管理员身份。
-	 *
-	 * @param userId 用户ID
-	 * @return 管理员实体
-	 */
-	private User requireAdminUser(Long userId) {
-		User user = requireActiveUser(userId);
-		if (!ADMIN_USER_TYPES.contains(user.getUserType())) {
-			throw new BusinessException("当前用户无管理权限");
-		}
-		return user;
-	}
 
 	/**
 	 * 校验系统管理员身份。

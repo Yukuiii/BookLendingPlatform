@@ -1,5 +1,16 @@
 package com.example.backend.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -25,17 +36,8 @@ import com.example.backend.vo.CollectionCategoryVO;
 import com.example.backend.vo.CollectionPageVO;
 import com.example.backend.vo.CollectionResultVO;
 import com.example.backend.vo.PageResult;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 收藏服务实现类。
@@ -465,7 +467,7 @@ public class CollectionServiceImpl implements CollectionService {
 			return Map.of();
 		}
 
-		return bookMapper.selectBatchIds(bookIds).stream()
+		return bookMapper.selectByIds(bookIds).stream()
 			.filter(Objects::nonNull)
 			.collect(Collectors.toMap(Book::getBookId, (book) -> book, (existing, ignored) -> existing));
 	}
@@ -490,7 +492,7 @@ public class CollectionServiceImpl implements CollectionService {
 			return Map.of();
 		}
 
-		return bookCategoryMapper.selectBatchIds(categoryIds).stream()
+		return bookCategoryMapper.selectByIds(categoryIds).stream()
 			.filter(Objects::nonNull)
 			.collect(Collectors.toMap(BookCategory::getCategoryId, BookCategory::getCategoryName, (existing, ignored) -> existing));
 	}

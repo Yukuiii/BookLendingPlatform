@@ -1,5 +1,16 @@
 package com.example.backend.service.impl;
 
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.BeanUtils;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.AdminBookLocationPageQueryDTO;
@@ -33,17 +44,8 @@ import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.ReturnBookVO;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.BeanUtils;
-import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 管理端服务实现类。
@@ -669,7 +671,7 @@ public class AdminServiceImpl implements AdminService {
 		if (bookIds == null || bookIds.isEmpty()) {
 			return Map.of();
 		}
-		return bookMapper.selectBatchIds(bookIds.stream().filter(Objects::nonNull).distinct().toList()).stream()
+		return bookMapper.selectByIds(bookIds.stream().filter(Objects::nonNull).distinct().toList()).stream()
 			.filter(Objects::nonNull)
 			.collect(Collectors.toMap(Book::getBookId, (book) -> book, (existing, ignored) -> existing));
 	}
@@ -703,7 +705,7 @@ public class AdminServiceImpl implements AdminService {
 		if (userIds == null || userIds.isEmpty()) {
 			return Map.of();
 		}
-		return userMapper.selectBatchIds(userIds.stream().filter(Objects::nonNull).distinct().toList()).stream()
+		return userMapper.selectByIds(userIds.stream().filter(Objects::nonNull).distinct().toList()).stream()
 			.filter(Objects::nonNull)
 			.collect(Collectors.toMap(User::getNameId, (user) -> user, (existing, ignored) -> existing));
 	}
