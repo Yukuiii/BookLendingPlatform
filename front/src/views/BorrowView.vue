@@ -2,7 +2,7 @@
 import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { pageMyBorrowRecords, returnBorrowBook } from '../api/borrow'
+import { pageMyBorrowRecords, renewBorrowBook, returnBorrowBook } from '../api/borrow'
 import { createComment } from '../api/comment'
 import { formatDateTime, formatLocation } from '../utils/book'
 
@@ -41,6 +41,8 @@ const statusOptions = [
   { label: '超期', value: 3 },
   { label: '审核中', value: 4 },
 ]
+
+const MAX_RENEW_COUNT = 1
 
 /**
  * 页面挂载后初始化借阅记录。
@@ -141,6 +143,38 @@ async function handleReturn(record) {
     await loadBorrowRecords()
   } catch (error) {
     ElMessage.error(error.message || '归还失败，请稍后重试')
+  }
+}
+
+/**
+ * 处理续借图书操作。
+ *
+ * @param {object} record 借阅记录对象
+ */
+async function handleRenew(record) {
+  const borrowId = record?.borrowId
+  if (!borrowId) {
+    ElMessage.warning('借阅记录不完整，暂无法续借')
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm(`确认续借《${record.bookName || '当前图书'}》吗？`, '续借确认', {
+      type: 'warning',
+      confirmButtonText: '确认续借',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  try {
+    const result = await renewBorrowBook(borrowId)
+    const dueDate = formatDateTime(result?.dueDate)
+    ElMessage.success(`续借成功，新的应还日期：${dueDate}`)
+    await loadBorrowRecords()
+  } catch (error) {
+    ElMessage.error(error.message || '续借失败，请稍后重试')
   }
 }
 
@@ -266,6 +300,16 @@ function canReturnBook(status) {
 }
 
 /**
+ * 判断当前记录是否允许续借。
+ *
+ * @param {object} record 借阅记录对象
+ * @returns {boolean} 是否允许续借
+ */
+function canRenewBook(record) {
+  return Number(record?.status) === 1 && Number(record?.renewCount || 0) < MAX_RENEW_COUNT
+}
+
+/**
  * 判断当前记录是否允许评论。
  *
  * @param {object} record 借阅记录对象
@@ -285,6 +329,9 @@ function resolveCommentActionText(record) {
   if (Number(record?.status) === 4) {
     return '待审核'
   }
+  if (Number(record?.status) === 1 && Number(record?.renewCount || 0) >= MAX_RENEW_COUNT) {
+    return '续借已满'
+  }
   if (record?.commented) {
     const rating = Number(record?.commentRating || 0)
     return rating > 0 ? `已评论 ${rating} 分` : '已评论'
@@ -299,7 +346,7 @@ function resolveCommentActionText(record) {
       <div class="home-section-header">
         <div>
           <strong>我的借阅</strong>
-          <p>查看与筛选你的借阅记录（审核中、借阅中、已归还、超期）</p>
+          <p>查看与筛选你的借阅记录（审核中、借阅中、已归还、超期），每本书最多续借 1 次</p>
         </div>
         <el-button type="primary" plain @click="handleSearch">刷新列表</el-button>
       </div>
@@ -381,9 +428,12 @@ function resolveCommentActionText(record) {
         <template #default="{ row }">{{ row.fineAmount ?? 0 }}</template>
       </el-table-column>
 
-      <el-table-column label="操作" width="132" align="center" fixed="right">
+      <el-table-column label="操作" width="176" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="canReturnBook(row.status)" type="primary" link @click="handleReturn(row)">立即归还</el-button>
+          <div v-if="canReturnBook(row.status)" class="borrow-action-group">
+            <el-button v-if="canRenewBook(row)" type="primary" link @click="handleRenew(row)">续借</el-button>
+            <el-button type="primary" link @click="handleReturn(row)">立即归还</el-button>
+          </div>
           <el-button v-else-if="canCreateComment(row)" type="warning" link @click="openCommentDialog(row)">立即评论</el-button>
           <span v-else class="borrow-action-placeholder">{{ resolveCommentActionText(row) }}</span>
         </template>

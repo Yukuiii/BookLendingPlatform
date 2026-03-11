@@ -34,6 +34,7 @@ import com.example.backend.service.BorrowService;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
+import com.example.backend.vo.RenewBookVO;
 import com.example.backend.vo.ReturnBookVO;
 
 import lombok.RequiredArgsConstructor;
@@ -64,6 +65,11 @@ public class BorrowServiceImpl implements BorrowService {
 	 * 默认借阅天数。
 	 */
 	private static final int DEFAULT_BORROW_DAYS = 30;
+
+	/**
+	 * 最大续借次数。
+	 */
+	private static final int MAX_RENEW_COUNT = 1;
 
 	/**
 	 * 普通用户最大借阅数默认值。
@@ -259,6 +265,63 @@ public class BorrowServiceImpl implements BorrowService {
 			borrowRecord.getBookId(),
 			borrowRecord.getBorrowDate(),
 			borrowRecord.getDueDate(),
+			borrowRecord.getStatus()
+		);
+	}
+
+	/**
+	 * 续借图书。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @return 续借结果
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public RenewBookVO renewBook(Long userId, Long borrowId) {
+		if (userId == null || userId <= 0) {
+			throw new BusinessException("请先登录再续借图书");
+		}
+		if (borrowId == null || borrowId <= 0) {
+			throw new BusinessException("借阅记录ID不合法");
+		}
+
+		requireAvailableUser(userId);
+		refreshExpiredBorrowRecords(userId);
+
+		BorrowRecord borrowRecord = borrowRecordMapper.selectById(borrowId);
+		if (borrowRecord == null) {
+			throw new BusinessException("借阅记录不存在");
+		}
+		if (!Objects.equals(borrowRecord.getUserId(), userId)) {
+			throw new BusinessException("无权续借该借阅记录");
+		}
+		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)) {
+			if (Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
+				throw new BusinessException("图书已超期，请先归还后再处理");
+			}
+			throw new BusinessException("当前借阅记录状态不支持续借");
+		}
+		if (borrowRecord.getDueDate() == null) {
+			throw new BusinessException("当前借阅记录缺少应还时间，暂无法续借");
+		}
+		int renewCount = borrowRecord.getRenewCount() == null ? 0 : borrowRecord.getRenewCount();
+		if (renewCount >= MAX_RENEW_COUNT) {
+			throw new BusinessException(String.format("单次借阅最多续借 %d 次", MAX_RENEW_COUNT));
+		}
+
+		LocalDateTime newDueDate = borrowRecord.getDueDate().plusDays(DEFAULT_BORROW_DAYS);
+		borrowRecord.setDueDate(newDueDate);
+		borrowRecord.setRenewCount(renewCount + 1);
+		borrowRecord.setOverdueDays(0);
+		borrowRecord.setUpdateTime(LocalDateTime.now());
+		borrowRecordMapper.updateById(borrowRecord);
+
+		return new RenewBookVO(
+			borrowRecord.getBorrowId(),
+			borrowRecord.getBookId(),
+			borrowRecord.getDueDate(),
+			borrowRecord.getRenewCount(),
 			borrowRecord.getStatus()
 		);
 	}

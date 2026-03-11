@@ -924,6 +924,12 @@ select {
   font-size: 12px;
 }
 
+.borrow-action-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .comment-dialog-book {
   margin-bottom: 16px;
   padding: 12px 14px;

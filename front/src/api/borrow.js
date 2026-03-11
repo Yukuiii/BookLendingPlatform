@@ -16,6 +16,18 @@ export function borrowBook(bookId) {
 }
 
 /**
+ * 续借图书。
+ *
+ * @param {number|string} borrowId 借阅记录ID
+ * @returns {Promise<any>} 续借结果
+ */
+export function renewBorrowBook(borrowId) {
+  return request(`/borrow-records/${encodeURIComponent(borrowId)}/renew`, {
+    method: 'POST',
+  })
+}
+
+/**
  * 归还图书。
  *
  * @param {number|string} borrowId 借阅记录ID

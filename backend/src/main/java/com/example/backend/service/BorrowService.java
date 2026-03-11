@@ -5,6 +5,7 @@ import com.example.backend.dto.BorrowRecordPageQueryDTO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
+import com.example.backend.vo.RenewBookVO;
 import com.example.backend.vo.ReturnBookVO;
 
 /**
@@ -29,6 +30,15 @@ public interface BorrowService {
 	 * @return 审核结果
 	 */
 	BorrowResultVO approveBorrowRecord(Long adminUserId, Long borrowId);
+
+	/**
+	 * 续借图书。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @return 续借结果
+	 */
+	RenewBookVO renewBook(Long userId, Long borrowId);
 
 	/**
 	 * 归还图书。
