@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
-import { ChatDotRound, Management, MapLocation, Reading, User } from '@element-plus/icons-vue'
+import { ChatDotRound, DataAnalysis, Management, MapLocation, Reading, User } from '@element-plus/icons-vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
@@ -62,7 +62,11 @@ const menuItems = computed(() => {
   ]
 
   if (Number(currentUser.value?.userType) === 3) {
-    return [{ key: 'admin-users', label: '用户管理', icon: User }, ...items]
+    return [
+      { key: 'admin-users', label: '用户管理', icon: User },
+      { key: 'admin-statistics', label: '统计分析', icon: DataAnalysis },
+      ...items
+    ]
   }
   return items
 })

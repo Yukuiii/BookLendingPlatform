@@ -11,6 +11,7 @@ import com.example.backend.entity.BookCategory;
 import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
 import com.example.backend.vo.AdminCommentPageVO;
+import com.example.backend.vo.AdminStatisticsVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.BorrowResultVO;
@@ -133,4 +134,12 @@ public interface AdminService {
 	 * @return 归还结果
 	 */
 	ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId);
+
+	/**
+	 * 获取管理端统计数据。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @return 统计数据
+	 */
+	AdminStatisticsVO getAdminStatistics(Long adminUserId);
 }

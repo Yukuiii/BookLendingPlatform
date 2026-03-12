@@ -168,6 +168,17 @@ export function returnAdminBorrowRecord(borrowId) {
 }
 
 /**
+ * 获取管理端统计数据。
+ *
+ * @returns {Promise<any>} 统计数据
+ */
+export function getAdminStatistics() {
+  return request('/admin/statistics', {
+    method: 'GET',
+  })
+}
+
+/**
  * 构建 GET 请求。
  *
  * @param {string} path 请求路径

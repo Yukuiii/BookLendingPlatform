@@ -39,6 +39,7 @@ import com.example.backend.service.BorrowService;
 import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
 import com.example.backend.vo.AdminCommentPageVO;
+import com.example.backend.vo.AdminStatisticsVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
 import com.example.backend.vo.BorrowResultVO;
@@ -428,6 +429,45 @@ public class AdminServiceImpl implements AdminService {
 	public ReturnBookVO returnAdminBorrowRecord(Long adminUserId, Long borrowId) {
 		requireAdminUser(adminUserId);
 		return borrowService.returnAdminBorrowRecord(adminUserId, borrowId);
+	}
+
+	/**
+	 * 获取管理端统计数据。
+	 *
+	 * @param adminUserId 管理员ID
+	 * @return 统计数据
+	 */
+	@Override
+	public AdminStatisticsVO getAdminStatistics(Long adminUserId) {
+		requireAdminUser(adminUserId);
+
+		LocalDateTime now = LocalDateTime.now();
+		LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+
+		// 统计当月总借阅次数
+		Long totalBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+			.ge(BorrowRecord::getBorrowDate, monthStart));
+
+		// 统计当月活跃用户数
+		List<BorrowRecord> monthRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
+			.ge(BorrowRecord::getBorrowDate, monthStart)
+			.select(BorrowRecord::getUserId));
+		Long activeUserCount = monthRecords.stream()
+			.map(BorrowRecord::getUserId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.count();
+
+		// 统计超期未还图书数
+		Long overdueBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getStatus, 3));
+
+		// 统计当月归还图书数量
+		Long returnedBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getStatus, 2)
+			.ge(BorrowRecord::getReturnDate, monthStart));
+
+		return new AdminStatisticsVO(totalBorrowCount, activeUserCount, overdueBookCount, returnedBookCount);
 	}
 
 	/**

@@ -15,6 +15,7 @@ import AdminBookLocationView from '../views/admin/AdminBookLocationView.vue'
 import AdminBookManageView from '../views/admin/AdminBookManageView.vue'
 import AdminBorrowManageView from '../views/admin/AdminBorrowManageView.vue'
 import AdminCommentManageView from '../views/admin/AdminCommentManageView.vue'
+import AdminStatisticsView from '../views/admin/AdminStatisticsView.vue'
 import AdminUserManageView from '../views/admin/AdminUserManageView.vue'
 import { getCurrentUser } from '../utils/auth'
 
@@ -134,6 +135,15 @@ const routes = [
         component: AdminUserManageView,
         meta: {
           title: '用户管理',
+          systemAdminOnly: true,
+        },
+      },
+      {
+        path: 'statistics',
+        name: 'admin-statistics',
+        component: AdminStatisticsView,
+        meta: {
+          title: '统计分析',
           systemAdminOnly: true,
         },
       },
