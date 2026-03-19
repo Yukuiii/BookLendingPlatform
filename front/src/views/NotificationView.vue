@@ -107,6 +107,9 @@ function resolveNotificationTypeLabel(notificationType) {
   if (notificationType === 1) {
     return '超期提醒'
   }
+  if (notificationType === 2) {
+    return '预约到书'
+  }
   return '系统通知'
 }
 
@@ -172,7 +175,7 @@ function goBorrowPage(notification) {
       <div class="home-section-header">
         <div>
           <strong>信息通知</strong>
-          <p>查看系统发送给你的借阅提醒通知</p>
+          <p>查看系统发送给你的借阅提醒与预约到书通知</p>
         </div>
         <el-button type="primary" plain @click="handleSearch">刷新列表</el-button>
       </div>

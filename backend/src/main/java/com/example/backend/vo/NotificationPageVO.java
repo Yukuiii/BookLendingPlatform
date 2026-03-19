@@ -20,7 +20,7 @@ public class NotificationPageVO {
 	private Long notificationId;
 
 	/**
-	 * 通知类型：1超期提醒。
+	 * 通知类型：1超期提醒，2预约借阅成功。
 	 */
 	private Integer notificationType;
 

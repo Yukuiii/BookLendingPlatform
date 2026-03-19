@@ -1,9 +1,9 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
-import { borrowBook } from '../api/borrow'
+import { borrowBook, reserveBook } from '../api/borrow'
 import { getBookDetail, listRecommendedBooks, pageBooks } from '../api/book'
 import { listApprovedBookComments } from '../api/comment'
 import { collectBook, listMyCollectionCategories } from '../api/collection'
@@ -164,23 +164,98 @@ async function handleBorrow(book) {
     ElMessage.warning('图书信息不完整，暂无法借阅')
     return
   }
+  if (Number(book?.status) !== 1) {
+    ElMessage.warning('当前图书已下架，暂不可借阅')
+    return
+  }
+  // 前端本地就能判定“无库存”的情况时，直接给用户预约入口，减少一次无意义的借阅失败请求。
+  if (!(Number(book?.availableCount || 0) > 0)) {
+    await promptReserveBook(book)
+    return
+  }
 
   try {
     const result = await borrowBook(bookId)
     const dueDate = result?.dueDate ? formatDateTime(result.dueDate) : ''
     const isPending = Number(result?.status) === 4
     ElMessage.success(isPending ? '借阅申请已提交，等待图书管理员审核' : dueDate ? `借阅成功，应还日期：${dueDate}` : '借阅成功')
-
-    await Promise.all([
-      loadBooks(),
-      loadRecommendations(),
-    ])
-
-    if (detailDialogVisible.value && detailBook.value?.bookId === bookId) {
-      detailBook.value = await getBookDetail(bookId)
-    }
+    await refreshBorrowRelatedData(bookId)
   } catch (error) {
+    // 库存可能在点击借阅后被其他请求先一步占用，这时从普通借阅兜底切到预约弹窗。
+    if (isBookUnavailableError(error) && Number(book?.status) === 1) {
+      await promptReserveBook(book, error.message)
+      return
+    }
     ElMessage.error(error.message || '借阅失败，请稍后重试')
+  }
+}
+
+/**
+ * 弹出预约确认框。
+ *
+ * @param {object} book 图书对象
+ * @param {string} message 提示文案
+ */
+async function promptReserveBook(book, message = '') {
+  try {
+    // 这里统一复用确认框，既支持前端本地库存判断触发，也支持后端返回“库存不足”后的兜底触发。
+    await ElMessageBox.confirm(
+      message || `《${book?.bookName || '当前图书'}》当前暂无可借库存，是否立即加入预约队列？`,
+      '预约图书',
+      {
+        type: 'warning',
+        confirmButtonText: '立即预约',
+        cancelButtonText: '暂不预约',
+      },
+    )
+  } catch {
+    return
+  }
+
+  await submitReservation(book)
+}
+
+/**
+ * 提交图书预约请求。
+ *
+ * @param {object} book 图书对象
+ */
+async function submitReservation(book) {
+  const bookId = book?.bookId
+  if (!bookId) {
+    ElMessage.warning('图书信息不完整，暂无法预约')
+    return
+  }
+
+  try {
+    const result = await reserveBook(bookId)
+    const queuePosition = Number(result?.queuePosition || 0)
+    ElMessage.success(queuePosition > 0 ? `预约成功，当前排队第 ${queuePosition} 位` : '预约成功，请等待系统分配')
+    await refreshBorrowRelatedData(bookId)
+  } catch (error) {
+    ElMessage.error(error.message || '预约失败，请稍后重试')
+  }
+}
+
+/**
+ * 刷新借阅相关展示数据。
+ *
+ * @param {number} bookId 图书ID
+ */
+async function refreshBorrowRelatedData(bookId) {
+  // 借阅或预约成功后同时刷新列表和推荐区，保持库存、按钮文案和推荐结果一致。
+  await Promise.all([
+    loadBooks(),
+    loadRecommendations(),
+  ])
+
+  if (detailDialogVisible.value && detailBook.value?.bookId === bookId) {
+    try {
+      // 详情弹窗开着时额外刷新详情，避免弹窗内的可借数量和主列表不一致。
+      detailBook.value = await getBookDetail(bookId)
+    } catch (error) {
+      ElMessage.warning(error.message || '图书详情刷新失败，请稍后重试')
+    }
   }
 }
 
@@ -385,6 +460,27 @@ function formatBookRating(book) {
 }
 
 /**
+ * 获取借阅按钮文案。
+ *
+ * @param {object} book 图书对象
+ * @returns {string} 按钮文案
+ */
+function resolveBorrowButtonText(book) {
+  return Number(book?.availableCount || 0) > 0 ? '立即借阅' : '预约借阅'
+}
+
+/**
+ * 判断错误是否为库存不足场景。
+ *
+ * @param {Error} error 错误对象
+ * @returns {boolean} 是否为库存不足
+ */
+function isBookUnavailableError(error) {
+  const message = error?.message || ''
+  return message.includes('暂无可借库存') || message.includes('库存不足')
+}
+
+/**
  * 解析评论展示名称。
  *
  * @param {object} comment 评论对象
@@ -449,8 +545,8 @@ function goPreferencePage() {
 
               <div class="home-recommend-actions">
                 <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
-                <el-button type="warning" size="small" :disabled="book.status !== 1 || !(book.availableCount > 0)" @click="handleBorrow(book)">
-                  立即借阅
+                <el-button type="warning" size="small" :disabled="book.status !== 1" @click="handleBorrow(book)">
+                  {{ resolveBorrowButtonText(book) }}
                 </el-button>
               </div>
             </div>
@@ -550,8 +646,8 @@ function goPreferencePage() {
               <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
               <el-button type="primary" link @click="handleFavorite(book)">收藏</el-button>
             </div>
-            <el-button type="warning" :disabled="book.status !== 1 || !(book.availableCount > 0)" @click="handleBorrow(book)">
-              立即借阅
+            <el-button type="warning" :disabled="book.status !== 1" @click="handleBorrow(book)">
+              {{ resolveBorrowButtonText(book) }}
             </el-button>
           </div>
         </div>
@@ -676,10 +772,10 @@ function goPreferencePage() {
       <el-button type="primary" plain :disabled="!detailBook" @click="handleFavorite(detailBook)">收藏</el-button>
       <el-button
         type="warning"
-        :disabled="!detailBook || detailBook.status !== 1 || !(detailBook.availableCount > 0)"
+        :disabled="!detailBook || detailBook.status !== 1"
         @click="handleBorrow(detailBook)"
       >
-        立即借阅
+        {{ resolveBorrowButtonText(detailBook) }}
       </el-button>
       <el-button @click="detailDialogVisible = false">关闭</el-button>
     </template>

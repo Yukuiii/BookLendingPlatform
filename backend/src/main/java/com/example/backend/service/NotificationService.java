@@ -5,6 +5,7 @@ import com.example.backend.vo.NotificationPageVO;
 import com.example.backend.vo.PageResult;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 /**
  * 通知服务接口。
@@ -21,6 +22,16 @@ public interface NotificationService {
 	 * @param fineAmount 罚款金额
 	 */
 	void createBorrowOverdueNotification(Long userId, Long borrowId, String bookName, Integer overdueDays, BigDecimal fineAmount);
+
+	/**
+	 * 发送预约兑现后的借阅成功通知。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @param bookName 图书名称
+	 * @param dueDate 应还时间
+	 */
+	void createReservationBorrowSuccessNotification(Long userId, Long borrowId, String bookName, LocalDateTime dueDate);
 
 	/**
 	 * 分页查询我的通知。

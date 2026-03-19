@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.BorrowBookRequestDTO;
+import com.example.backend.vo.BookReservationVO;
 import com.example.backend.dto.BorrowRecordPageQueryDTO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
@@ -21,6 +22,15 @@ public interface BorrowService {
 	 * @return 借阅结果
 	 */
 	BorrowResultVO borrowBook(Long userId, BorrowBookRequestDTO requestDTO);
+
+	/**
+	 * 提交图书预约申请。
+	 *
+	 * @param userId 用户ID
+	 * @param requestDTO 预约请求参数
+	 * @return 预约结果
+	 */
+	BookReservationVO reserveBook(Long userId, BorrowBookRequestDTO requestDTO);
 
 	/**
 	 * 管理端审核通过借阅申请。

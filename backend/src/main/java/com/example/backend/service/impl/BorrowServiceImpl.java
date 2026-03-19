@@ -20,6 +20,7 @@ import com.example.backend.dto.BorrowRecordPageQueryDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BookLocation;
+import com.example.backend.entity.BookReservation;
 import com.example.backend.entity.BorrowRecord;
 import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
@@ -27,11 +28,13 @@ import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
 import com.example.backend.mapper.BookMapper;
+import com.example.backend.mapper.BookReservationMapper;
 import com.example.backend.mapper.BorrowRecordMapper;
 import com.example.backend.mapper.CommentMapper;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.BorrowService;
 import com.example.backend.service.NotificationService;
+import com.example.backend.vo.BookReservationVO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
@@ -117,8 +120,24 @@ public class BorrowServiceImpl implements BorrowService {
 	 */
 	private static final int PENDING_REVIEW_STATUS = 4;
 
+	/**
+	 * 预约排队中状态。
+	 */
+	private static final int RESERVATION_WAITING_STATUS = 1;
+
+	/**
+	 * 预约已完成状态。
+	 */
+	private static final int RESERVATION_FULFILLED_STATUS = 2;
+
+	/**
+	 * 预约已失效状态。
+	 */
+	private static final int RESERVATION_EXPIRED_STATUS = 3;
+
 	private final BorrowRecordMapper borrowRecordMapper;
 	private final BookMapper bookMapper;
+	private final BookReservationMapper bookReservationMapper;
 	private final UserMapper userMapper;
 	private final BookCategoryMapper bookCategoryMapper;
 	private final BookLocationMapper bookLocationMapper;
@@ -145,56 +164,90 @@ public class BorrowServiceImpl implements BorrowService {
 
 		User user = requireAvailableUser(userId);
 		refreshExpiredBorrowRecords(userId);
+		// 先记录用户当前是否已有这本书的排队预约，后面处理完队列后用于判断本次请求是否已经被自动兑现。
+		boolean hasWaitingReservationBeforeDispatch = hasWaitingReservation(userId, bookId);
 
-		int maxBorrowCount = user.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : user.getMaxBorrowCount();
-		Long activeBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getUserId, userId)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS));
-		if (activeBorrowCount != null && activeBorrowCount >= maxBorrowCount) {
-			throw new BusinessException(String.format("已达到最大借阅数量（%d），请先完成现有借阅或等待审核结果", maxBorrowCount));
+		Book book = requireBorrowableBook(bookId);
+		// 借阅入口先尝试清空当前图书可兑现的预约队列，避免明明该分给预约用户的库存又被新的普通借阅请求抢走。
+		processBookReservationQueue(bookId);
+		if (hasWaitingReservationBeforeDispatch) {
+			BorrowRecord autoAssignedBorrowRecord = findLatestActiveBorrowRecord(userId, bookId);
+			// 预约兑现后生成的记录会直接是借阅中/超期，不会回到审核中；这里直接返回，避免用户重复走普通借阅流程。
+			if (autoAssignedBorrowRecord != null && !Objects.equals(autoAssignedBorrowRecord.getStatus(), PENDING_REVIEW_STATUS)) {
+				return buildBorrowResultVO(autoAssignedBorrowRecord);
+			}
 		}
 
-		Book book = bookMapper.selectById(bookId);
-		if (book == null) {
-			throw new BusinessException("图书不存在");
-		}
-		if (!Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS)) {
-			throw new BusinessException("图书已下架，暂不可借阅");
-		}
+		// 队列处理后重新读取图书库存，确保后续判断基于最新可借数量。
+		book = requireBorrowableBook(bookId);
+		validateUserBorrowCapacity(user, true, "已达到最大借阅数量（%d），请先完成现有借阅或等待审核结果");
 		if (book.getAvailableCount() == null || book.getAvailableCount() <= 0) {
-			throw new BusinessException("图书库存不足，暂不可借阅");
+			throw new BusinessException("当前图书暂无可借库存，可选择预约等待归还");
 		}
 
 		// 禁止同一用户在未归还前重复借阅同一本书，避免占用库存产生困惑。
-		Long alreadyBorrowed = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getUserId, userId)
-			.eq(BorrowRecord::getBookId, bookId)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS));
-		if (alreadyBorrowed != null && alreadyBorrowed > 0) {
+		if (hasUserActiveSameBookBorrowRecord(userId, bookId, true, null)) {
 			throw new BusinessException("你已提交过该图书的借阅申请或仍有未归还记录");
 		}
 
-		LocalDateTime now = LocalDateTime.now();
-		BorrowRecord borrowRecord = new BorrowRecord();
-		borrowRecord.setUserId(userId);
-		borrowRecord.setBookId(bookId);
-		borrowRecord.setBorrowDate(now);
-		borrowRecord.setDueDate(null);
-		borrowRecord.setReturnDate(null);
-		borrowRecord.setRenewCount(0);
-		borrowRecord.setStatus(PENDING_REVIEW_STATUS);
-		borrowRecord.setOverdueDays(0);
-		borrowRecord.setFineAmount(BigDecimal.ZERO);
-		borrowRecord.setCreateTime(now);
-		borrowRecord.setUpdateTime(now);
-		borrowRecordMapper.insert(borrowRecord);
+		return buildBorrowResultVO(createPendingBorrowRecord(userId, bookId, LocalDateTime.now()));
+	}
 
-		return new BorrowResultVO(
-			borrowRecord.getBorrowId(),
+	/**
+	 * 提交图书预约申请。
+	 *
+	 * @param userId 用户ID
+	 * @param requestDTO 预约请求参数
+	 * @return 预约结果
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public BookReservationVO reserveBook(Long userId, BorrowBookRequestDTO requestDTO) {
+		Long bookId = requestDTO == null ? null : requestDTO.getBookId();
+		if (userId == null || userId <= 0) {
+			throw new BusinessException("请先登录再预约图书");
+		}
+		if (bookId == null || bookId <= 0) {
+			throw new BusinessException("图书ID不合法");
+		}
+
+		User user = requireAvailableUser(userId);
+		refreshExpiredBorrowRecords(userId);
+
+		Book book = requireBorrowableBook(bookId);
+		// 预约前同样先尝试兑现队列，避免当前用户实际上已经可以直接借到书。
+		processBookReservationQueue(bookId);
+		// 队列处理后重新读取库存，确保“还能不能预约”的判断准确。
+		book = requireBorrowableBook(bookId);
+		validateUserBorrowCapacity(user, true, "已达到最大借阅数量（%d），请先完成现有借阅后再预约");
+		if (book.getAvailableCount() != null && book.getAvailableCount() > 0) {
+			throw new BusinessException("当前图书仍可借阅，请直接提交借阅申请");
+		}
+		if (hasUserActiveSameBookBorrowRecord(userId, bookId, true, null)) {
+			throw new BusinessException("你已提交过该图书的借阅申请或仍有未归还记录");
+		}
+		if (hasWaitingReservation(userId, bookId)) {
+			throw new BusinessException("你已预约过该图书，请等待系统分配");
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		// 队列号只在“排队中”集合内递增，保证同一本书的预约兑现顺序稳定。
+		int queuePosition = resolveNextReservationQueueNo(bookId);
+		BookReservation reservation = new BookReservation();
+		reservation.setUserId(userId);
+		reservation.setBookId(bookId);
+		reservation.setQueueNo(queuePosition);
+		reservation.setStatus(RESERVATION_WAITING_STATUS);
+		reservation.setBorrowId(null);
+		reservation.setCreateTime(now);
+		reservation.setUpdateTime(now);
+		bookReservationMapper.insert(reservation);
+
+		return new BookReservationVO(
+			reservation.getReservationId(),
 			bookId,
-			borrowRecord.getBorrowDate(),
-			borrowRecord.getDueDate(),
-			borrowRecord.getStatus()
+			queuePosition,
+			reservation.getStatus()
 		);
 	}
 
@@ -222,30 +275,13 @@ public class BorrowServiceImpl implements BorrowService {
 		}
 
 		User borrower = requireAvailableUser(borrowRecord.getUserId());
-		int maxBorrowCount = borrower.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : borrower.getMaxBorrowCount();
-		Long activeBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getUserId, borrower.getNameId())
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS));
-		if (activeBorrowCount != null && activeBorrowCount >= maxBorrowCount) {
-			throw new BusinessException(String.format("该用户已达到最大借阅数量（%d）", maxBorrowCount));
-		}
+		validateUserBorrowCapacity(borrower, false, "该用户已达到最大借阅数量（%d）");
 
-		Long duplicateBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getUserId, borrower.getNameId())
-			.eq(BorrowRecord::getBookId, borrowRecord.getBookId())
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS)
-			.ne(BorrowRecord::getBorrowId, borrowRecord.getBorrowId()));
-		if (duplicateBorrowCount != null && duplicateBorrowCount > 0) {
+		if (hasUserActiveSameBookBorrowRecord(borrower.getNameId(), borrowRecord.getBookId(), false, borrowRecord.getBorrowId())) {
 			throw new BusinessException("该用户已借阅此图书，无需重复审核通过");
 		}
 
-		Book book = bookMapper.selectById(borrowRecord.getBookId());
-		if (book == null) {
-			throw new BusinessException("图书不存在");
-		}
-		if (!Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS)) {
-			throw new BusinessException("图书已下架，暂不可审核通过");
-		}
+		Book book = requireBorrowableBook(borrowRecord.getBookId());
 
 		// 审核通过时再原子扣减库存，确保最终借阅成功的记录才占用馆藏。
 		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
@@ -267,13 +303,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setUpdateTime(now);
 		borrowRecordMapper.updateById(borrowRecord);
 
-		return new BorrowResultVO(
-			borrowRecord.getBorrowId(),
-			borrowRecord.getBookId(),
-			borrowRecord.getBorrowDate(),
-			borrowRecord.getDueDate(),
-			borrowRecord.getStatus()
-		);
+		return buildBorrowResultVO(borrowRecord);
 	}
 
 	/**
@@ -429,6 +459,23 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
+	 * 校验图书是否存在且处于上架状态。
+	 *
+	 * @param bookId 图书ID
+	 * @return 图书实体
+	 */
+	private Book requireBorrowableBook(Long bookId) {
+		Book book = bookMapper.selectById(bookId);
+		if (book == null) {
+			throw new BusinessException("图书不存在");
+		}
+		if (!Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS)) {
+			throw new BusinessException("图书已下架，暂不可借阅");
+		}
+		return book;
+	}
+
+	/**
 	 * 校验并返回可用用户。
 	 *
 	 * @param userId 用户ID
@@ -446,6 +493,25 @@ public class BorrowServiceImpl implements BorrowService {
 	}
 
 	/**
+	 * 校验用户借阅容量。
+	 *
+	 * @param user 用户实体
+	 * @param includePending 是否统计审核中记录
+	 * @param messageTemplate 错误消息模板
+	 */
+	private void validateUserBorrowCapacity(User user, boolean includePending, String messageTemplate) {
+		if (user == null || user.getNameId() == null) {
+			throw new BusinessException("用户不存在");
+		}
+
+		int maxBorrowCount = resolveUserMaxBorrowCount(user);
+		long activeBorrowCount = countUserActiveBorrowRecords(user.getNameId(), includePending);
+		if (activeBorrowCount >= maxBorrowCount) {
+			throw new BusinessException(String.format(messageTemplate, maxBorrowCount));
+		}
+	}
+
+	/**
 	 * 校验管理员身份。
 	 *
 	 * @param userId 用户ID
@@ -457,6 +523,150 @@ public class BorrowServiceImpl implements BorrowService {
 			throw new BusinessException("当前用户无管理权限");
 		}
 		return user;
+	}
+
+	/**
+	 * 计算用户当前可计入额度的借阅数量。
+	 *
+	 * @param userId 用户ID
+	 * @param includePending 是否统计审核中记录
+	 * @return 借阅数量
+	 */
+	private long countUserActiveBorrowRecords(Long userId, boolean includePending) {
+		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, userId)
+			.in(
+				BorrowRecord::getStatus,
+				includePending ? List.of(BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS) : List.of(BORROWING_STATUS, OVERDUE_STATUS)
+			);
+		Long count = borrowRecordMapper.selectCount(queryWrapper);
+		return count == null ? 0L : count;
+	}
+
+	/**
+	 * 判断用户是否已存在同一本书的有效借阅记录。
+	 *
+	 * @param userId 用户ID
+	 * @param bookId 图书ID
+	 * @param includePending 是否统计审核中记录
+	 * @param excludeBorrowId 需要排除的借阅记录ID
+	 * @return 是否存在
+	 */
+	private boolean hasUserActiveSameBookBorrowRecord(Long userId, Long bookId, boolean includePending, Long excludeBorrowId) {
+		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, userId)
+			.eq(BorrowRecord::getBookId, bookId)
+			.in(
+				BorrowRecord::getStatus,
+				includePending ? List.of(BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS) : List.of(BORROWING_STATUS, OVERDUE_STATUS)
+			);
+		if (excludeBorrowId != null && excludeBorrowId > 0) {
+			queryWrapper.ne(BorrowRecord::getBorrowId, excludeBorrowId);
+		}
+		Long count = borrowRecordMapper.selectCount(queryWrapper);
+		return count != null && count > 0;
+	}
+
+	/**
+	 * 判断用户是否存在排队中的预约记录。
+	 *
+	 * @param userId 用户ID
+	 * @param bookId 图书ID
+	 * @return 是否存在
+	 */
+	private boolean hasWaitingReservation(Long userId, Long bookId) {
+		Long count = bookReservationMapper.selectCount(new LambdaQueryWrapper<BookReservation>()
+			.eq(BookReservation::getUserId, userId)
+			.eq(BookReservation::getBookId, bookId)
+			.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS));
+		return count != null && count > 0;
+	}
+
+	/**
+	 * 查询用户当前同一本书的有效借阅记录。
+	 *
+	 * @param userId 用户ID
+	 * @param bookId 图书ID
+	 * @return 借阅记录
+	 */
+	private BorrowRecord findLatestActiveBorrowRecord(Long userId, Long bookId) {
+		return borrowRecordMapper.selectOne(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getUserId, userId)
+			.eq(BorrowRecord::getBookId, bookId)
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS)
+			.orderByDesc(BorrowRecord::getUpdateTime)
+			.orderByDesc(BorrowRecord::getBorrowId)
+			.last("limit 1"));
+	}
+
+	/**
+	 * 创建审核中的借阅记录。
+	 *
+	 * @param userId 用户ID
+	 * @param bookId 图书ID
+	 * @param now 当前时间
+	 * @return 借阅记录
+	 */
+	private BorrowRecord createPendingBorrowRecord(Long userId, Long bookId, LocalDateTime now) {
+		BorrowRecord borrowRecord = new BorrowRecord();
+		borrowRecord.setUserId(userId);
+		borrowRecord.setBookId(bookId);
+		borrowRecord.setBorrowDate(now);
+		borrowRecord.setDueDate(null);
+		borrowRecord.setReturnDate(null);
+		borrowRecord.setRenewCount(0);
+		borrowRecord.setStatus(PENDING_REVIEW_STATUS);
+		borrowRecord.setOverdueDays(0);
+		borrowRecord.setFineAmount(BigDecimal.ZERO);
+		borrowRecord.setCreateTime(now);
+		borrowRecord.setUpdateTime(now);
+		borrowRecordMapper.insert(borrowRecord);
+		return borrowRecord;
+	}
+
+	/**
+	 * 构建借阅结果返回对象。
+	 *
+	 * @param borrowRecord 借阅记录
+	 * @return 借阅结果
+	 */
+	private BorrowResultVO buildBorrowResultVO(BorrowRecord borrowRecord) {
+		return new BorrowResultVO(
+			borrowRecord == null ? null : borrowRecord.getBorrowId(),
+			borrowRecord == null ? null : borrowRecord.getBookId(),
+			borrowRecord == null ? null : borrowRecord.getBorrowDate(),
+			borrowRecord == null ? null : borrowRecord.getDueDate(),
+			borrowRecord == null ? null : borrowRecord.getStatus()
+		);
+	}
+
+	/**
+	 * 获取用户最大借阅数量。
+	 *
+	 * @param user 用户实体
+	 * @return 最大借阅数量
+	 */
+	private int resolveUserMaxBorrowCount(User user) {
+		return user.getMaxBorrowCount() == null ? DEFAULT_MAX_BORROW_COUNT : user.getMaxBorrowCount();
+	}
+
+	/**
+	 * 计算下一条预约记录的队列序号。
+	 *
+	 * @param bookId 图书ID
+	 * @return 队列序号
+	 */
+	private int resolveNextReservationQueueNo(Long bookId) {
+		BookReservation latestReservation = bookReservationMapper.selectOne(new LambdaQueryWrapper<BookReservation>()
+			.eq(BookReservation::getBookId, bookId)
+			.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS)
+			.orderByDesc(BookReservation::getQueueNo)
+			.orderByDesc(BookReservation::getReservationId)
+			.last("limit 1"));
+		if (latestReservation == null || latestReservation.getQueueNo() == null || latestReservation.getQueueNo() <= 0) {
+			return 1;
+		}
+		return latestReservation.getQueueNo() + 1;
 	}
 
 	/**
@@ -497,12 +707,14 @@ public class BorrowServiceImpl implements BorrowService {
 			.eq(Book::getBookId, borrowRecord.getBookId())
 			.setSql("available_count = IFNULL(available_count, 0) + 1"));
 
+		// 先把当前归还记录落库成已归还，再分配预约队列，这样后续额度校验和“是否已持有同一本书”的判断才是最新状态。
 		borrowRecord.setReturnDate(now);
 		borrowRecord.setStatus(RETURNED_STATUS);
 		borrowRecord.setOverdueDays(overdueDays);
 		borrowRecord.setFineAmount(fineAmount);
 		borrowRecord.setUpdateTime(now);
 		borrowRecordMapper.updateById(borrowRecord);
+		processBookReservationQueue(borrowRecord.getBookId());
 
 		return new ReturnBookVO(
 			borrowRecord.getBorrowId(),
@@ -512,6 +724,132 @@ public class BorrowServiceImpl implements BorrowService {
 			borrowRecord.getFineAmount(),
 			borrowRecord.getStatus()
 		);
+	}
+
+	/**
+	 * 处理指定图书的预约队列分配。
+	 *
+	 * @param bookId 图书ID
+	 */
+	private void processBookReservationQueue(Long bookId) {
+		if (bookId == null || bookId <= 0) {
+			return;
+		}
+
+		while (true) {
+			Book book = bookMapper.selectById(bookId);
+			// 图书不存在、已下架或已经没有可借库存时，当前这轮预约分配立即停止。
+			if (book == null || !Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS) || book.getAvailableCount() == null || book.getAvailableCount() <= 0) {
+				return;
+			}
+
+			BookReservation reservation = bookReservationMapper.selectOne(new LambdaQueryWrapper<BookReservation>()
+				.eq(BookReservation::getBookId, bookId)
+				.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS)
+				.orderByAsc(BookReservation::getQueueNo)
+				.orderByAsc(BookReservation::getReservationId)
+				.last("limit 1"));
+			if (reservation == null) {
+				return;
+			}
+
+			// 返回 false 代表库存扣减失败等需要终止本轮处理，返回 true 则继续看下一位是否还可以被兑现。
+			if (!handleWaitingReservation(reservation, book)) {
+				return;
+			}
+		}
+	}
+
+	/**
+	 * 处理队首预约记录。
+	 *
+	 * @param reservation 预约记录
+	 * @param book 图书实体
+	 * @return 是否继续处理后续队列
+	 */
+	private boolean handleWaitingReservation(BookReservation reservation, Book book) {
+		User user = reservation == null ? null : userMapper.selectById(reservation.getUserId());
+		// 队首预约人如果已被禁用、达到借阅上限或已经持有同一本书，则当前预约无法兑现，直接失效并继续尝试后续队列。
+		if (!canReservationUserReceiveBook(user, book == null ? null : book.getBookId())) {
+			markReservationExpired(reservation);
+			return true;
+		}
+
+		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
+			.eq(Book::getBookId, book.getBookId())
+			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.gt(Book::getAvailableCount, 0)
+			.setSql("available_count = available_count - 1")
+			.setSql("borrow_count = IFNULL(borrow_count, 0) + 1"));
+		// 这里扣减失败通常表示并发下库存已被别的请求抢先消耗，本轮队列处理应立即结束，等待下一次触发再重试。
+		if (updated <= 0) {
+			return false;
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		// 预约兑现属于系统直借成功，因此直接生成“借阅中”记录，而不是再走管理员审核链路。
+		BorrowRecord borrowRecord = new BorrowRecord();
+		borrowRecord.setUserId(reservation.getUserId());
+		borrowRecord.setBookId(book.getBookId());
+		borrowRecord.setBorrowDate(now);
+		borrowRecord.setDueDate(now.plusDays(DEFAULT_BORROW_DAYS));
+		borrowRecord.setReturnDate(null);
+		borrowRecord.setRenewCount(0);
+		borrowRecord.setStatus(BORROWING_STATUS);
+		borrowRecord.setOverdueDays(0);
+		borrowRecord.setFineAmount(BigDecimal.ZERO);
+		borrowRecord.setCreateTime(now);
+		borrowRecord.setUpdateTime(now);
+		borrowRecordMapper.insert(borrowRecord);
+
+		// 队首预约兑现后立即标记完成，并关联自动生成的借阅记录。
+		reservation.setStatus(RESERVATION_FULFILLED_STATUS);
+		reservation.setBorrowId(borrowRecord.getBorrowId());
+		reservation.setUpdateTime(now);
+		bookReservationMapper.updateById(reservation);
+
+		notificationService.createReservationBorrowSuccessNotification(
+			reservation.getUserId(),
+			borrowRecord.getBorrowId(),
+			book.getBookName(),
+			borrowRecord.getDueDate()
+		);
+		// 当前队首已经成功兑现，如果图书还有额外库存，外层循环会继续分配下一位。
+		return true;
+	}
+
+	/**
+	 * 判断预约用户当前是否仍具备直接借阅资格。
+	 *
+	 * @param user 用户实体
+	 * @param bookId 图书ID
+	 * @return 是否可借
+	 */
+	private boolean canReservationUserReceiveBook(User user, Long bookId) {
+		// 用户不存在、主键缺失或账号已禁用时，不能再承接预约到书。
+		if (user == null || user.getNameId() == null || !Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+			return false;
+		}
+		// 预约兑现会直接生成借阅中记录，因此这里要按“包含审核中记录”的口径校验借阅额度。
+		if (countUserActiveBorrowRecords(user.getNameId(), true) >= resolveUserMaxBorrowCount(user)) {
+			return false;
+		}
+		// 同一本书在用户侧只允许存在一条有效借阅链路，避免重复分配导致库存和记录错乱。
+		return !hasUserActiveSameBookBorrowRecord(user.getNameId(), bookId, true, null);
+	}
+
+	/**
+	 * 将无法兑现的预约记录标记为失效。
+	 *
+	 * @param reservation 预约记录
+	 */
+	private void markReservationExpired(BookReservation reservation) {
+		if (reservation == null || reservation.getReservationId() == null) {
+			return; 
+		}
+		reservation.setStatus(RESERVATION_EXPIRED_STATUS);
+		reservation.setUpdateTime(LocalDateTime.now());
+		bookReservationMapper.updateById(reservation);
 	}
 
 	/**

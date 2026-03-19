@@ -54,6 +54,11 @@ public class NotificationServiceImpl implements NotificationService {
 	private static final int OVERDUE_NOTIFICATION_TYPE = 1;
 
 	/**
+	 * 通知类型：预约借阅成功。
+	 */
+	private static final int RESERVATION_SUCCESS_NOTIFICATION_TYPE = 2;
+
+	/**
 	 * 通知未读状态。
 	 */
 	private static final int UNREAD_STATUS = 0;
@@ -102,6 +107,41 @@ public class NotificationServiceImpl implements NotificationService {
 
 		try {
 			// 借助唯一索引保证同一条借阅记录只生成一条超期提醒，避免定时任务重复发送。
+			notificationMessageMapper.insert(notification);
+		} catch (DuplicateKeyException ignored) {
+			// 并发场景下若已有相同通知，则直接忽略即可。
+		}
+	}
+
+	/**
+	 * 发送预约兑现后的借阅成功通知。
+	 *
+	 * @param userId 用户ID
+	 * @param borrowId 借阅记录ID
+	 * @param bookName 图书名称
+	 * @param dueDate 应还时间
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void createReservationBorrowSuccessNotification(Long userId, Long borrowId, String bookName, LocalDateTime dueDate) {
+		if (userId == null || userId <= 0 || borrowId == null || borrowId <= 0) {
+			return;
+		}
+
+		LocalDateTime now = LocalDateTime.now();
+		NotificationMessage notification = new NotificationMessage();
+		notification.setUserId(userId);
+		notification.setNotificationType(RESERVATION_SUCCESS_NOTIFICATION_TYPE);
+		notification.setTitle("预约借阅成功");
+		notification.setContent(buildReservationBorrowSuccessContent(bookName, dueDate));
+		notification.setBusinessType(BORROW_BUSINESS_TYPE);
+		notification.setBusinessId(borrowId);
+		notification.setReadStatus(UNREAD_STATUS);
+		notification.setReadTime(null);
+		notification.setCreateTime(now);
+		notification.setUpdateTime(now);
+
+		try {
 			notificationMessageMapper.insert(notification);
 		} catch (DuplicateKeyException ignored) {
 			// 并发场景下若已有相同通知，则直接忽略即可。
@@ -208,6 +248,19 @@ public class NotificationServiceImpl implements NotificationService {
 		int safeOverdueDays = overdueDays == null || overdueDays <= 0 ? 1 : overdueDays;
 		BigDecimal safeFineAmount = fineAmount == null ? BigDecimal.ZERO : fineAmount;
 		return String.format("你借阅的《%s》已超期 %d 天，当前罚款 %.2f 元，请尽快归还。", safeBookName, safeOverdueDays, safeFineAmount);
+	}
+
+	/**
+	 * 构建预约借阅成功通知内容。
+	 *
+	 * @param bookName 图书名称
+	 * @param dueDate 应还时间
+	 * @return 通知内容
+	 */
+	private String buildReservationBorrowSuccessContent(String bookName, LocalDateTime dueDate) {
+		String safeBookName = (bookName == null || bookName.isBlank()) ? "当前图书" : bookName.trim();
+		String dueDateText = dueDate == null ? "系统暂未生成应还时间" : dueDate.toString().replace('T', ' ');
+		return String.format("你预约的《%s》已自动借阅成功，无需管理员审核，应还时间：%s。", safeBookName, dueDateText);
 	}
 
 	/**

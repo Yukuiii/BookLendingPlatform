@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.dto.BorrowBookRequestDTO;
 import com.example.backend.dto.BorrowRecordPageQueryDTO;
 import com.example.backend.service.BorrowService;
+import com.example.backend.vo.BookReservationVO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
@@ -41,6 +42,21 @@ public class BorrowRecordController {
 		@RequestBody BorrowBookRequestDTO requestDTO
 	) {
 		return borrowService.borrowBook(userId, requestDTO);
+	}
+
+	/**
+	 * 提交图书预约申请。
+	 *
+	 * @param userId 当前用户ID
+	 * @param requestDTO 预约请求参数
+	 * @return 预约结果
+	 */
+	@PostMapping("/reservations")
+	public BookReservationVO reserveBook(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@RequestBody BorrowBookRequestDTO requestDTO
+	) {
+		return borrowService.reserveBook(userId, requestDTO);
 	}
 
 	/**

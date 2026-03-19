@@ -3,7 +3,7 @@ package com.example.backend.dto;
 import lombok.Data;
 
 /**
- * 立即借阅请求参数。
+ * 图书借阅或预约请求参数。
  */
 @Data
 public class BorrowBookRequestDTO {
@@ -13,4 +13,3 @@ public class BorrowBookRequestDTO {
 	 */
 	private Long bookId;
 }
-

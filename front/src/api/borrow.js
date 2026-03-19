@@ -16,6 +16,21 @@ export function borrowBook(bookId) {
 }
 
 /**
+ * 预约图书。
+ *
+ * @param {number|string} bookId 图书ID
+ * @returns {Promise<any>} 预约结果
+ */
+export function reserveBook(bookId) {
+  return request('/borrow-records/reservations', {
+    method: 'POST',
+    body: JSON.stringify({
+      bookId,
+    }),
+  })
+}
+
+/**
  * 续借图书。
  *
  * @param {number|string} borrowId 借阅记录ID
