@@ -1,6 +1,8 @@
 package com.example.backend.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -38,7 +40,10 @@ import com.example.backend.service.BookService;
 import com.example.backend.service.BorrowService;
 import com.example.backend.vo.AdminBookLocationVO;
 import com.example.backend.vo.AdminBorrowRecordPageVO;
+import com.example.backend.vo.AdminCategoryBorrowVO;
 import com.example.backend.vo.AdminCommentPageVO;
+import com.example.backend.vo.AdminHotBookVO;
+import com.example.backend.vo.AdminMonthlyTrendVO;
 import com.example.backend.vo.AdminStatisticsVO;
 import com.example.backend.vo.BookDetailVO;
 import com.example.backend.vo.BookPageVO;
@@ -94,6 +99,31 @@ public class AdminServiceImpl implements AdminService {
 	 * 可用管理员角色。
 	 */
 	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
+
+	/**
+	 * 借阅中状态。
+	 */
+	private static final int BORROWING_STATUS = 1;
+
+	/**
+	 * 已归还状态。
+	 */
+	private static final int RETURNED_STATUS = 2;
+
+	/**
+	 * 超期状态。
+	 */
+	private static final int OVERDUE_STATUS = 3;
+
+	/**
+	 * 热门图书排行上限。
+	 */
+	private static final int HOT_BOOK_LIMIT = 10;
+
+	/**
+	 * 默认分类名称。
+	 */
+	private static final String DEFAULT_CATEGORY_NAME = "未分类";
 
 	private final UserMapper userMapper;
 	private final BookMapper bookMapper;
@@ -440,17 +470,20 @@ public class AdminServiceImpl implements AdminService {
 	@Override
 	public AdminStatisticsVO getAdminStatistics(Long adminUserId) {
 		requireAdminUser(adminUserId);
+		borrowService.refreshAllExpiredBorrowRecords();
 
 		LocalDateTime now = LocalDateTime.now();
 		LocalDateTime monthStart = now.withDayOfMonth(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+		LocalDateTime yearStart = now.withDayOfYear(1).withHour(0).withMinute(0).withSecond(0).withNano(0);
+		LocalDateTime yearEnd = yearStart.plusYears(1);
 
-		// 统计当月总借阅次数
 		Long totalBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.ge(BorrowRecord::getBorrowDate, monthStart));
+			.ge(BorrowRecord::getBorrowDate, monthStart)
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS));
 
-		// 统计当月活跃用户数
 		List<BorrowRecord> monthRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
 			.ge(BorrowRecord::getBorrowDate, monthStart)
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS)
 			.select(BorrowRecord::getUserId));
 		Long activeUserCount = monthRecords.stream()
 			.map(BorrowRecord::getUserId)
@@ -458,16 +491,147 @@ public class AdminServiceImpl implements AdminService {
 			.distinct()
 			.count();
 
-		// 统计超期未还图书数
 		Long overdueBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, 3));
+			.eq(BorrowRecord::getStatus, OVERDUE_STATUS));
 
-		// 统计当月归还图书数量
 		Long returnedBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, 2)
+			.eq(BorrowRecord::getStatus, RETURNED_STATUS)
 			.ge(BorrowRecord::getReturnDate, monthStart));
 
-		return new AdminStatisticsVO(totalBorrowCount, activeUserCount, overdueBookCount, returnedBookCount);
+		AdminStatisticsVO statisticsVO = new AdminStatisticsVO();
+		statisticsVO.setTotalBorrowCount(totalBorrowCount);
+		statisticsVO.setActiveUserCount(activeUserCount);
+		statisticsVO.setOverdueBookCount(overdueBookCount);
+		statisticsVO.setReturnedBookCount(returnedBookCount);
+		statisticsVO.setTrendYear(now.getYear());
+		statisticsVO.setMonthlyBorrowTrends(buildMonthlyBorrowTrends(yearStart, yearEnd));
+		statisticsVO.setHotBookRanking(buildHotBookRanking());
+		statisticsVO.setCategoryBorrowAnalysis(buildCategoryBorrowAnalysis());
+		return statisticsVO;
+	}
+
+	/**
+	 * 构建当前年份的月度借阅趋势数据。
+	 *
+	 * @param yearStart 年初时间
+	 * @param yearEnd 次年年初时间
+	 * @return 月度借阅趋势
+	 */
+	private List<AdminMonthlyTrendVO> buildMonthlyBorrowTrends(LocalDateTime yearStart, LocalDateTime yearEnd) {
+		long[] borrowCounts = new long[12];
+		long[] returnCounts = new long[12];
+
+		List<BorrowRecord> borrowRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
+			.ge(BorrowRecord::getBorrowDate, yearStart)
+			.lt(BorrowRecord::getBorrowDate, yearEnd)
+			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS)
+			.select(BorrowRecord::getBorrowDate));
+		for (BorrowRecord borrowRecord : borrowRecords) {
+			if (borrowRecord.getBorrowDate() == null) {
+				continue;
+			}
+			int monthIndex = borrowRecord.getBorrowDate().getMonthValue() - 1;
+			borrowCounts[monthIndex]++;
+		}
+
+		List<BorrowRecord> returnedRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
+			.eq(BorrowRecord::getStatus, RETURNED_STATUS)
+			.ge(BorrowRecord::getReturnDate, yearStart)
+			.lt(BorrowRecord::getReturnDate, yearEnd)
+			.select(BorrowRecord::getReturnDate));
+		for (BorrowRecord borrowRecord : returnedRecords) {
+			if (borrowRecord.getReturnDate() == null) {
+				continue;
+			}
+			int monthIndex = borrowRecord.getReturnDate().getMonthValue() - 1;
+			returnCounts[monthIndex]++;
+		}
+
+		List<AdminMonthlyTrendVO> trendList = new ArrayList<>(12);
+		for (int month = 1; month <= 12; month++) {
+			trendList.add(new AdminMonthlyTrendVO(
+				month + "月",
+				borrowCounts[month - 1],
+				returnCounts[month - 1]
+			));
+		}
+		return trendList;
+	}
+
+	/**
+	 * 构建热门图书排行数据。
+	 *
+	 * @return 热门图书排行
+	 */
+	private List<AdminHotBookVO> buildHotBookRanking() {
+		List<Book> hotBooks = bookMapper.selectList(new LambdaQueryWrapper<Book>()
+			.gt(Book::getBorrowCount, 0)
+			.orderByDesc(Book::getBorrowCount)
+			.orderByAsc(Book::getBookId)
+			.last("limit " + HOT_BOOK_LIMIT));
+		return hotBooks.stream()
+			.map((book) -> new AdminHotBookVO(book.getBookName(), normalizeBorrowCount(book.getBorrowCount())))
+			.toList();
+	}
+
+	/**
+	 * 构建图书借阅分类分析数据。
+	 *
+	 * @return 图书借阅分类分析
+	 */
+	private List<AdminCategoryBorrowVO> buildCategoryBorrowAnalysis() {
+		List<Book> borrowedBooks = bookMapper.selectList(new LambdaQueryWrapper<Book>()
+			.gt(Book::getBorrowCount, 0)
+			.select(Book::getCategoryId, Book::getBorrowCount));
+		if (borrowedBooks.isEmpty()) {
+			return List.of();
+		}
+
+		Map<Long, String> categoryNameMap = resolveCategoryNameMap(borrowedBooks);
+		Map<String, Long> categoryBorrowCountMap = new HashMap<>();
+		for (Book book : borrowedBooks) {
+			String categoryName = categoryNameMap.getOrDefault(book.getCategoryId(), DEFAULT_CATEGORY_NAME);
+			long borrowCount = normalizeBorrowCount(book.getBorrowCount());
+
+			// 将同一分类下所有图书的累计借阅次数合并，供饼图展示分类占比。
+			categoryBorrowCountMap.merge(categoryName, borrowCount, Long::sum);
+		}
+
+		return categoryBorrowCountMap.entrySet().stream()
+			.map((entry) -> new AdminCategoryBorrowVO(entry.getKey(), entry.getValue()))
+			.sorted((left, right) -> Long.compare(right.getBorrowCount(), left.getBorrowCount()))
+			.toList();
+	}
+
+	/**
+	 * 解析图书分类名称映射。
+	 *
+	 * @param books 图书集合
+	 * @return 分类名称映射
+	 */
+	private Map<Long, String> resolveCategoryNameMap(List<Book> books) {
+		List<Long> categoryIds = books.stream()
+			.map(Book::getCategoryId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (categoryIds.isEmpty()) {
+			return Map.of();
+		}
+
+		return bookCategoryMapper.selectBatchIds(categoryIds).stream()
+			.filter(Objects::nonNull)
+			.collect(Collectors.toMap(BookCategory::getCategoryId, BookCategory::getCategoryName, (left, right) -> left));
+	}
+
+	/**
+	 * 归一化借阅次数。
+	 *
+	 * @param borrowCount 借阅次数
+	 * @return 归一化后的借阅次数
+	 */
+	private long normalizeBorrowCount(Integer borrowCount) {
+		return borrowCount == null ? 0L : borrowCount.longValue();
 	}
 
 	/**

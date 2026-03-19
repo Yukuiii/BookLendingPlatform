@@ -1,5 +1,7 @@
 package com.example.backend.vo;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -31,4 +33,24 @@ public class AdminStatisticsVO {
 	 * 归还图书数量。
 	 */
 	private Long returnedBookCount;
+
+	/**
+	 * 借阅趋势对应年份。
+	 */
+	private Integer trendYear;
+
+	/**
+	 * 月度借阅趋势数据。
+	 */
+	private List<AdminMonthlyTrendVO> monthlyBorrowTrends;
+
+	/**
+	 * 热门图书排行数据。
+	 */
+	private List<AdminHotBookVO> hotBookRanking;
+
+	/**
+	 * 图书借阅分类分析数据。
+	 */
+	private List<AdminCategoryBorrowVO> categoryBorrowAnalysis;
 }
