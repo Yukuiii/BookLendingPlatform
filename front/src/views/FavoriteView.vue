@@ -10,6 +10,7 @@ import {
   removeCollection,
   updateCollectionCategory,
 } from '../api/collection'
+import { BOOK_STATUS_LABEL_MAP, BOOK_STATUS_TAG_TYPE_MAP } from '../constants/status'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -341,7 +342,9 @@ function buildCoverPlaceholder(record) {
 
       <el-table-column label="图书状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'" effect="light">{{ row.status === 1 ? '正常' : '下架' }}</el-tag>
+          <el-tag :type="BOOK_STATUS_TAG_TYPE_MAP[Number(row.status)] || 'info'" effect="light">
+            {{ BOOK_STATUS_LABEL_MAP[Number(row.status)] || '未知' }}
+          </el-tag>
         </template>
       </el-table-column>
 

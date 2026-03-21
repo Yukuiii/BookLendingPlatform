@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { pageMyBorrowRecords, renewBorrowBook, returnBorrowBook } from '../api/borrow'
 import { createComment } from '../api/comment'
+import { BORROW_STATUS, BORROW_STATUS_LABEL_MAP, BORROW_STATUS_OPTIONS, BORROW_STATUS_TAG_TYPE_MAP } from '../constants/status'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -35,12 +36,7 @@ const commentRules = {
 
 const commentFormRef = ref(null)
 
-const statusOptions = [
-  { label: '借阅中', value: 1 },
-  { label: '已归还', value: 2 },
-  { label: '超期', value: 3 },
-  { label: '审核中', value: 4 },
-]
+const statusOptions = BORROW_STATUS_OPTIONS
 
 const MAX_RENEW_COUNT = 1
 
@@ -257,19 +253,7 @@ function buildCoverPlaceholder(record) {
  * @returns {string} 状态文案
  */
 function resolveBorrowStatusLabel(status) {
-  if (status === 1) {
-    return '借阅中'
-  }
-  if (status === 2) {
-    return '已归还'
-  }
-  if (status === 3) {
-    return '超期'
-  }
-  if (status === 4) {
-    return '审核中'
-  }
-  return '未知'
+  return BORROW_STATUS_LABEL_MAP[Number(status)] || '未知'
 }
 
 /**
@@ -279,19 +263,7 @@ function resolveBorrowStatusLabel(status) {
  * @returns {string} 标签类型
  */
 function resolveBorrowStatusType(status) {
-  if (status === 1) {
-    return 'success'
-  }
-  if (status === 2) {
-    return 'info'
-  }
-  if (status === 3) {
-    return 'danger'
-  }
-  if (status === 4) {
-    return 'warning'
-  }
-  return 'warning'
+  return BORROW_STATUS_TAG_TYPE_MAP[Number(status)] || 'warning'
 }
 
 /**
@@ -301,7 +273,7 @@ function resolveBorrowStatusType(status) {
  * @returns {boolean} 是否允许归还
  */
 function canReturnBook(status) {
-  return status === 1 || status === 3
+  return Number(status) === BORROW_STATUS.BORROWING || Number(status) === BORROW_STATUS.OVERDUE
 }
 
 /**
@@ -311,7 +283,7 @@ function canReturnBook(status) {
  * @returns {boolean} 是否允许续借
  */
 function canRenewBook(record) {
-  return Number(record?.status) === 1 && Number(record?.renewCount || 0) < MAX_RENEW_COUNT
+  return Number(record?.status) === BORROW_STATUS.BORROWING && Number(record?.renewCount || 0) < MAX_RENEW_COUNT
 }
 
 /**
@@ -321,7 +293,7 @@ function canRenewBook(record) {
  * @returns {boolean} 是否允许评论
  */
 function canCreateComment(record) {
-  return Number(record?.status) === 2 && record?.commented !== true
+  return Number(record?.status) === BORROW_STATUS.RETURNED && record?.commented !== true
 }
 
 /**
@@ -331,10 +303,10 @@ function canCreateComment(record) {
  * @returns {string} 按钮文案
  */
 function resolveCommentActionText(record) {
-  if (Number(record?.status) === 4) {
+  if (Number(record?.status) === BORROW_STATUS.PENDING_REVIEW) {
     return '待审核'
   }
-  if (Number(record?.status) === 1 && Number(record?.renewCount || 0) >= MAX_RENEW_COUNT) {
+  if (Number(record?.status) === BORROW_STATUS.BORROWING && Number(record?.renewCount || 0) >= MAX_RENEW_COUNT) {
     return '续借已满'
   }
   if (record?.commented) {

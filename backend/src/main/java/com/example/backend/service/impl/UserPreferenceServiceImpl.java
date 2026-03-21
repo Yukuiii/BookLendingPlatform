@@ -5,6 +5,8 @@ import com.example.backend.dto.UpdateUserPreferenceDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.User;
 import com.example.backend.entity.UserPreference;
+import com.example.backend.enums.BookStatusEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookMapper;
 import com.example.backend.mapper.UserMapper;
@@ -30,16 +32,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class UserPreferenceServiceImpl implements UserPreferenceService {
-
-	/**
-	 * 用户正常状态。
-	 */
-	private static final int NORMAL_STATUS = 1;
-
-	/**
-	 * 图书上架状态。
-	 */
-	private static final int BOOK_ON_SHELF_STATUS = 1;
 
 	/**
 	 * 最大偏好项数量。
@@ -115,7 +107,7 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 		requireActiveUser(userId);
 
 		List<Book> books = bookMapper.selectList(new LambdaQueryWrapper<Book>()
-			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.eq(Book::getStatus, BookStatusEnum.ON_SHELF.getCode())
 			.orderByDesc(Book::getBorrowCount)
 			.orderByDesc(Book::getCreateTime));
 
@@ -167,7 +159,7 @@ public class UserPreferenceServiceImpl implements UserPreferenceService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用");
 		}
 		return user;

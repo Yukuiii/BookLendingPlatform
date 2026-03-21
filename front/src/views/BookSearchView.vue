@@ -7,6 +7,7 @@ import { borrowBook, reserveBook } from '../api/borrow'
 import { getBookDetail, listRecommendedBooks, pageBooks } from '../api/book'
 import { listApprovedBookComments } from '../api/comment'
 import { collectBook, listMyCollectionCategories } from '../api/collection'
+import { BOOK_STATUS, BOOK_STATUS_LABEL_MAP } from '../constants/status'
 import { formatDateTime, formatLocation } from '../utils/book'
 
 /**
@@ -50,8 +51,8 @@ const favoriteForm = reactive({
 })
 
 const statusOptions = [
-  { label: '在馆可借', value: 1 },
-  { label: '已下架', value: 0 },
+  { label: '在馆可借', value: BOOK_STATUS.NORMAL },
+  { label: '已下架', value: BOOK_STATUS.OFF_SHELF },
 ]
 
 /**
@@ -545,7 +546,12 @@ function goPreferencePage() {
 
               <div class="home-recommend-actions">
                 <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
-                <el-button type="warning" size="small" :disabled="book.status !== 1" @click="handleBorrow(book)">
+                <el-button
+                  type="warning"
+                  size="small"
+                  :disabled="book.status !== BOOK_STATUS.NORMAL"
+                  @click="handleBorrow(book)"
+                >
                   {{ resolveBorrowButtonText(book) }}
                 </el-button>
               </div>
@@ -607,7 +613,7 @@ function goPreferencePage() {
         <div class="book-card-content">
           <div class="book-card-head">
             <h3 class="book-card-title">{{ book.bookName }}</h3>
-            <el-tag v-if="book.status !== 1" type="info" effect="light">已下架</el-tag>
+            <el-tag v-if="book.status !== BOOK_STATUS.NORMAL" type="info" effect="light">已下架</el-tag>
           </div>
 
           <p class="book-card-author">{{ book.author || '未知作者' }} · {{ book.publisher || '未知出版社' }}</p>
@@ -646,7 +652,7 @@ function goPreferencePage() {
               <el-button type="primary" link @click="handleViewDetail(book)">查看详情</el-button>
               <el-button type="primary" link @click="handleFavorite(book)">收藏</el-button>
             </div>
-            <el-button type="warning" :disabled="book.status !== 1" @click="handleBorrow(book)">
+            <el-button type="warning" :disabled="book.status !== BOOK_STATUS.NORMAL" @click="handleBorrow(book)">
               {{ resolveBorrowButtonText(book) }}
             </el-button>
           </div>
@@ -717,7 +723,7 @@ function goPreferencePage() {
           <el-descriptions-item label="馆藏">{{ detailBook.totalCount ?? 0 }}</el-descriptions-item>
           <el-descriptions-item label="可借">{{ detailBook.availableCount ?? 0 }}</el-descriptions-item>
           <el-descriptions-item label="借阅">{{ detailBook.borrowCount ?? 0 }}</el-descriptions-item>
-          <el-descriptions-item label="状态">{{ detailBook.status === 1 ? '正常' : '下架' }}</el-descriptions-item>
+          <el-descriptions-item label="状态">{{ BOOK_STATUS_LABEL_MAP[Number(detailBook.status)] || '未知' }}</el-descriptions-item>
         </el-descriptions>
 
         <el-divider />
@@ -772,7 +778,7 @@ function goPreferencePage() {
       <el-button type="primary" plain :disabled="!detailBook" @click="handleFavorite(detailBook)">收藏</el-button>
       <el-button
         type="warning"
-        :disabled="!detailBook || detailBook.status !== 1"
+        :disabled="!detailBook || detailBook.status !== BOOK_STATUS.NORMAL"
         @click="handleBorrow(detailBook)"
       >
         {{ resolveBorrowButtonText(detailBook) }}

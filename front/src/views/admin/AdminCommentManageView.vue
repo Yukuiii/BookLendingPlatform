@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { pageAdminComments, updateAdminCommentStatus } from '../../api/admin'
+import { COMMENT_STATUS_LABEL_MAP, COMMENT_STATUS_OPTIONS, COMMENT_STATUS_TAG_TYPE_MAP } from '../../constants/status'
 import { formatDateTime } from '../../utils/book'
 
 /**
@@ -22,11 +23,7 @@ const queryForm = reactive({
   status: null,
 })
 
-const statusOptions = [
-  { label: '审核通过', value: 1 },
-  { label: '审核中', value: 2 },
-  { label: '已隐藏', value: 0 },
-]
+const statusOptions = COMMENT_STATUS_OPTIONS
 
 /**
  * 页面挂载后加载评论数据。
@@ -129,16 +126,7 @@ function handleSizeChange(size) {
  * @returns {string} 状态文案
  */
 function resolveCommentStatusLabel(status) {
-  if (status === 0) {
-    return '已隐藏'
-  }
-  if (status === 1) {
-    return '审核通过'
-  }
-  if (status === 2) {
-    return '审核中'
-  }
-  return '未知'
+  return COMMENT_STATUS_LABEL_MAP[Number(status)] || '未知'
 }
 
 /**
@@ -148,16 +136,7 @@ function resolveCommentStatusLabel(status) {
  * @returns {string} 标签类型
  */
 function resolveCommentStatusType(status) {
-  if (status === 0) {
-    return 'info'
-  }
-  if (status === 1) {
-    return 'success'
-  }
-  if (status === 2) {
-    return 'warning'
-  }
-  return 'info'
+  return COMMENT_STATUS_TAG_TYPE_MAP[Number(status)] || 'info'
 }
 </script>
 

@@ -3,6 +3,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 
 import { approveAdminBorrowRecord, pageAdminBorrowRecords, returnAdminBorrowRecord } from '../../api/admin'
+import { BORROW_STATUS, BORROW_STATUS_LABEL_MAP, BORROW_STATUS_OPTIONS, BORROW_STATUS_TAG_TYPE_MAP } from '../../constants/status'
 import { formatDateTime } from '../../utils/book'
 
 /**
@@ -21,12 +22,7 @@ const queryForm = reactive({
   status: null,
 })
 
-const statusOptions = [
-  { label: '借阅中', value: 1 },
-  { label: '已归还', value: 2 },
-  { label: '超期', value: 3 },
-  { label: '审核中', value: 4 },
-]
+const statusOptions = BORROW_STATUS_OPTIONS
 
 /**
  * 页面挂载后加载借阅记录。
@@ -157,19 +153,7 @@ function handleSizeChange(size) {
  * @returns {string} 状态文案
  */
 function resolveBorrowStatusLabel(status) {
-  if (status === 1) {
-    return '借阅中'
-  }
-  if (status === 2) {
-    return '已归还'
-  }
-  if (status === 3) {
-    return '超期'
-  }
-  if (status === 4) {
-    return '审核中'
-  }
-  return '未知'
+  return BORROW_STATUS_LABEL_MAP[Number(status)] || '未知'
 }
 
 /**
@@ -179,19 +163,7 @@ function resolveBorrowStatusLabel(status) {
  * @returns {string} 标签类型
  */
 function resolveBorrowStatusType(status) {
-  if (status === 1) {
-    return 'success'
-  }
-  if (status === 2) {
-    return 'info'
-  }
-  if (status === 3) {
-    return 'danger'
-  }
-  if (status === 4) {
-    return 'warning'
-  }
-  return 'warning'
+  return BORROW_STATUS_TAG_TYPE_MAP[Number(status)] || 'warning'
 }
 </script>
 
@@ -254,8 +226,15 @@ function resolveBorrowStatusType(status) {
       </el-table-column>
       <el-table-column label="操作" width="132" align="center" fixed="right">
         <template #default="{ row }">
-          <el-button v-if="row.status === 4" type="warning" link @click="handleApprove(row)">审核通过</el-button>
-          <el-button v-else-if="row.status === 1 || row.status === 3" type="primary" link @click="handleReturn(row)">归还</el-button>
+          <el-button v-if="row.status === BORROW_STATUS.PENDING_REVIEW" type="warning" link @click="handleApprove(row)">审核通过</el-button>
+          <el-button
+            v-else-if="row.status === BORROW_STATUS.BORROWING || row.status === BORROW_STATUS.OVERDUE"
+            type="primary"
+            link
+            @click="handleReturn(row)"
+          >
+            归还
+          </el-button>
           <span v-else class="borrow-action-placeholder">--</span>
         </template>
       </el-table-column>

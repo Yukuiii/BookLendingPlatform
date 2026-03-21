@@ -19,6 +19,9 @@ import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BorrowRecord;
 import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
+import com.example.backend.enums.BorrowRecordStatusEnum;
+import com.example.backend.enums.CommentStatusEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookMapper;
@@ -53,26 +56,6 @@ public class CommentServiceImpl implements CommentService {
 	 * 每页最大条数。
 	 */
 	private static final long MAX_SIZE = 50L;
-
-	/**
-	 * 用户正常状态。
-	 */
-	private static final int NORMAL_USER_STATUS = 1;
-
-	/**
-	 * 借阅记录已归还状态。
-	 */
-	private static final int RETURNED_BORROW_STATUS = 2;
-
-	/**
-	 * 评论审核通过状态。
-	 */
-	private static final int COMMENT_VISIBLE_STATUS = 1;
-
-	/**
-	 * 评论审核中状态。
-	 */
-	private static final int COMMENT_PENDING_STATUS = 2;
 
 	/**
 	 * 最大评论长度。
@@ -117,7 +100,7 @@ public class CommentServiceImpl implements CommentService {
 		comment.setContent(requestDTO.getContent().trim());
 		comment.setRating(requestDTO.getRating());
 		comment.setLikeCount(0);
-		comment.setStatus(COMMENT_PENDING_STATUS);
+		comment.setStatus(CommentStatusEnum.PENDING.getCode());
 		comment.setCreateTime(now);
 		comment.setUpdateTime(now);
 		commentMapper.insert(comment);
@@ -141,7 +124,7 @@ public class CommentServiceImpl implements CommentService {
 		requireBook(bookId);
 		List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
 			.eq(Comment::getBookId, bookId)
-			.eq(Comment::getStatus, COMMENT_VISIBLE_STATUS)
+			.eq(Comment::getStatus, CommentStatusEnum.VISIBLE.getCode())
 			.orderByDesc(Comment::getCreateTime)
 			.orderByDesc(Comment::getId));
 		if (comments == null || comments.isEmpty()) {
@@ -209,7 +192,7 @@ public class CommentServiceImpl implements CommentService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用，无法执行该操作");
 		}
 		return user;
@@ -253,7 +236,7 @@ public class CommentServiceImpl implements CommentService {
 		if (!Objects.equals(borrowRecord.getUserId(), userId)) {
 			throw new BusinessException("无权评论该借阅记录");
 		}
-		if (!Objects.equals(borrowRecord.getStatus(), RETURNED_BORROW_STATUS)) {
+		if (!Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.RETURNED.getCode())) {
 			throw new BusinessException("仅支持对已归还图书发表评论");
 		}
 		return borrowRecord;

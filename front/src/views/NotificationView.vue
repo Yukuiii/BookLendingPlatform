@@ -3,6 +3,13 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import { NOTIFICATION_TYPE_LABEL_MAP } from '../constants/notification'
+import {
+  NOTIFICATION_READ_STATUS,
+  NOTIFICATION_READ_STATUS_LABEL_MAP,
+  NOTIFICATION_READ_STATUS_OPTIONS,
+  NOTIFICATION_READ_STATUS_TAG_TYPE_MAP,
+} from '../constants/status'
 import { markMyNotificationRead, pageMyNotifications } from '../api/notification'
 import { formatDateTime } from '../utils/book'
 
@@ -24,10 +31,7 @@ const queryForm = reactive({
   readStatus: null,
 })
 
-const readStatusOptions = [
-  { label: '未读', value: 0 },
-  { label: '已读', value: 1 },
-]
+const readStatusOptions = NOTIFICATION_READ_STATUS_OPTIONS
 
 /**
  * 页面挂载后加载通知数据。
@@ -104,13 +108,7 @@ function handleSizeChange(size) {
  * @returns {string} 文案
  */
 function resolveNotificationTypeLabel(notificationType) {
-  if (notificationType === 1) {
-    return '超期提醒'
-  }
-  if (notificationType === 2) {
-    return '预约到书'
-  }
-  return '系统通知'
+  return NOTIFICATION_TYPE_LABEL_MAP[Number(notificationType)] || '系统通知'
 }
 
 /**
@@ -120,7 +118,7 @@ function resolveNotificationTypeLabel(notificationType) {
  * @returns {string} 文案
  */
 function resolveReadStatusLabel(readStatus) {
-  return Number(readStatus) === 1 ? '已读' : '未读'
+  return NOTIFICATION_READ_STATUS_LABEL_MAP[Number(readStatus)] || '未读'
 }
 
 /**
@@ -130,7 +128,7 @@ function resolveReadStatusLabel(readStatus) {
  * @returns {string} 标签类型
  */
 function resolveReadStatusType(readStatus) {
-  return Number(readStatus) === 1 ? 'info' : 'danger'
+  return NOTIFICATION_READ_STATUS_TAG_TYPE_MAP[Number(readStatus)] || 'danger'
 }
 
 /**
@@ -140,14 +138,14 @@ function resolveReadStatusType(readStatus) {
  */
 async function handleRead(notification) {
   const notificationId = notification?.notificationId
-  if (!notificationId || Number(notification?.readStatus) === 1) {
+  if (!notificationId || Number(notification?.readStatus) === NOTIFICATION_READ_STATUS.READ) {
     return
   }
 
   readingNotificationId.value = notificationId
   try {
     const result = await markMyNotificationRead(notificationId)
-    notification.readStatus = result?.readStatus ?? 1
+    notification.readStatus = result?.readStatus ?? NOTIFICATION_READ_STATUS.READ
     notification.readTime = result?.readTime || notification.readTime
     ElMessage.success('通知已标记为已读')
   } catch (error) {
@@ -237,7 +235,7 @@ function goBorrowPage(notification) {
             <el-button
               type="primary"
               link
-              :disabled="Number(row.readStatus) === 1"
+              :disabled="Number(row.readStatus) === NOTIFICATION_READ_STATUS.READ"
               :loading="readingNotificationId === row.notificationId"
               @click="handleRead(row)"
             >

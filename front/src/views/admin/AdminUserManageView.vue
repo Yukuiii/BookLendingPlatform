@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 
 import { pageAdminUsers, updateAdminUser } from '../../api/admin'
 import { USER_TYPE_OPTIONS } from '../../constants/auth'
+import { USER_STATUS, USER_STATUS_LABEL_MAP, USER_STATUS_OPTIONS, USER_STATUS_TAG_TYPE_MAP } from '../../constants/status'
 import { formatDateTime } from '../../utils/book'
 
 /**
@@ -33,7 +34,7 @@ const editForm = reactive({
   phone: '',
   userType: 1,
   maxBorrowCount: 5,
-  status: 1,
+  status: USER_STATUS.NORMAL,
 })
 
 const editFormRef = ref(null)
@@ -43,10 +44,7 @@ const editRules = {
   phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
 }
 
-const statusOptions = [
-  { label: '正常', value: 1 },
-  { label: '禁用', value: 0 },
-]
+const statusOptions = USER_STATUS_OPTIONS
 
 /**
  * 页面挂载后加载用户列表。
@@ -111,7 +109,7 @@ function openEditDialog(row) {
   editForm.phone = row.phone || ''
   editForm.userType = row.userType ?? 1
   editForm.maxBorrowCount = row.maxBorrowCount ?? 5
-  editForm.status = row.status ?? 1
+  editForm.status = row.status ?? USER_STATUS.NORMAL
   editDialogVisible.value = true
 }
 
@@ -174,7 +172,7 @@ function handleSizeChange(size) {
  * @returns {string} 标签类型
  */
 function resolveStatusType(status) {
-  return status === 1 ? 'success' : 'danger'
+  return USER_STATUS_TAG_TYPE_MAP[Number(status)] || 'danger'
 }
 </script>
 
@@ -229,7 +227,9 @@ function resolveStatusType(status) {
       <el-table-column prop="maxBorrowCount" label="借阅上限" width="100" align="center" />
       <el-table-column label="状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="resolveStatusType(row.status)" effect="light">{{ row.status === 1 ? '正常' : '禁用' }}</el-tag>
+          <el-tag :type="resolveStatusType(row.status)" effect="light">
+            {{ USER_STATUS_LABEL_MAP[Number(row.status)] || '未知' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="创建时间" width="180">
@@ -292,4 +292,3 @@ function resolveStatusType(status) {
     </template>
   </el-dialog>
 </template>
-

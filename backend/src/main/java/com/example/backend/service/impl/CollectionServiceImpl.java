@@ -24,6 +24,7 @@ import com.example.backend.entity.BookLocation;
 import com.example.backend.entity.CollectionCategory;
 import com.example.backend.entity.CollectionRecord;
 import com.example.backend.entity.User;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
@@ -62,9 +63,9 @@ public class CollectionServiceImpl implements CollectionService {
 	private static final long MAX_SIZE = 50L;
 
 	/**
-	 * 正常状态。
+	 * 收藏分类启用状态。
 	 */
-	private static final int NORMAL_STATUS = 1;
+	private static final int CATEGORY_ENABLED_STATUS = 1;
 
 	/**
 	 * 默认收藏分类名称。
@@ -91,7 +92,7 @@ public class CollectionServiceImpl implements CollectionService {
 
 		List<CollectionCategory> categories = collectionCategoryMapper.selectList(new LambdaQueryWrapper<CollectionCategory>()
 			.eq(CollectionCategory::getUserId, userId)
-			.eq(CollectionCategory::getStatus, NORMAL_STATUS)
+			.eq(CollectionCategory::getStatus, CATEGORY_ENABLED_STATUS)
 			.orderByDesc(CollectionCategory::getIsDefault)
 			.orderByAsc(CollectionCategory::getSortOrder)
 			.orderByAsc(CollectionCategory::getCollectionCategoryId));
@@ -127,7 +128,7 @@ public class CollectionServiceImpl implements CollectionService {
 		collectionCategory.setCategoryName(categoryName);
 		collectionCategory.setSortOrder(resolveNextSortOrder(userId));
 		collectionCategory.setIsDefault(0);
-		collectionCategory.setStatus(NORMAL_STATUS);
+		collectionCategory.setStatus(CATEGORY_ENABLED_STATUS);
 		collectionCategory.setCreateTime(LocalDateTime.now());
 		collectionCategory.setUpdateTime(LocalDateTime.now());
 		collectionCategoryMapper.insert(collectionCategory);
@@ -318,7 +319,7 @@ public class CollectionServiceImpl implements CollectionService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用");
 		}
 		return user;
@@ -360,7 +361,7 @@ public class CollectionServiceImpl implements CollectionService {
 		if (collectionCategory == null || !Objects.equals(collectionCategory.getUserId(), userId)) {
 			throw new BusinessException("收藏分类不存在");
 		}
-		if (!Objects.equals(collectionCategory.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(collectionCategory.getStatus(), CATEGORY_ENABLED_STATUS)) {
 			throw new BusinessException("收藏分类已不可用");
 		}
 		return collectionCategory;
@@ -381,7 +382,7 @@ public class CollectionServiceImpl implements CollectionService {
 		if (collectionCategory == null || !Objects.equals(collectionCategory.getUserId(), userId)) {
 			throw new BusinessException("收藏分类不存在");
 		}
-		if (!Objects.equals(collectionCategory.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(collectionCategory.getStatus(), CATEGORY_ENABLED_STATUS)) {
 			throw new BusinessException("收藏分类已不可用");
 		}
 		return collectionCategory;
@@ -397,7 +398,7 @@ public class CollectionServiceImpl implements CollectionService {
 		CollectionCategory defaultCategory = collectionCategoryMapper.selectOne(new LambdaQueryWrapper<CollectionCategory>()
 			.eq(CollectionCategory::getUserId, userId)
 			.eq(CollectionCategory::getIsDefault, 1)
-			.eq(CollectionCategory::getStatus, NORMAL_STATUS)
+			.eq(CollectionCategory::getStatus, CATEGORY_ENABLED_STATUS)
 			.last("limit 1"));
 		if (defaultCategory != null) {
 			return defaultCategory;
@@ -408,7 +409,7 @@ public class CollectionServiceImpl implements CollectionService {
 		collectionCategory.setCategoryName(DEFAULT_CATEGORY_NAME);
 		collectionCategory.setSortOrder(0);
 		collectionCategory.setIsDefault(1);
-		collectionCategory.setStatus(NORMAL_STATUS);
+		collectionCategory.setStatus(CATEGORY_ENABLED_STATUS);
 		collectionCategory.setCreateTime(LocalDateTime.now());
 		collectionCategory.setUpdateTime(LocalDateTime.now());
 		collectionCategoryMapper.insert(collectionCategory);

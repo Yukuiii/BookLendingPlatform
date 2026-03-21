@@ -4,6 +4,7 @@ import { ElMessage } from 'element-plus'
 
 import { createAdminBook, listAdminBookCategories, pageAdminBooks, updateAdminBook } from '../../api/admin'
 import { getBookDetail } from '../../api/book'
+import { BOOK_STATUS, BOOK_STATUS_LABEL_MAP, BOOK_STATUS_OPTIONS, BOOK_STATUS_TAG_TYPE_MAP } from '../../constants/status'
 import { formatLocation } from '../../utils/book'
 
 /**
@@ -43,7 +44,7 @@ const bookForm = reactive({
   targetAudience: '',
   totalCount: 0,
   availableCount: 0,
-  status: 1,
+  status: BOOK_STATUS.NORMAL,
 })
 
 const difficultyOptions = [
@@ -52,10 +53,7 @@ const difficultyOptions = [
   { label: '专家', value: 3 },
 ]
 
-const statusOptions = [
-  { label: '正常', value: 1 },
-  { label: '下架', value: 0 },
-]
+const statusOptions = BOOK_STATUS_OPTIONS
 
 const bookFormRef = ref(null)
 const bookRules = {
@@ -162,7 +160,7 @@ async function openEditDialog(row) {
     bookForm.targetAudience = detail.targetAudience || ''
     bookForm.totalCount = detail.totalCount ?? 0
     bookForm.availableCount = detail.availableCount ?? 0
-    bookForm.status = detail.status ?? 1
+    bookForm.status = detail.status ?? BOOK_STATUS.NORMAL
   } catch (error) {
     dialogVisible.value = false
     ElMessage.error(error.message || '图书详情加载失败，请稍后重试')
@@ -307,7 +305,9 @@ function handleSizeChange(size) {
       </el-table-column>
       <el-table-column label="状态" width="100" align="center">
         <template #default="{ row }">
-          <el-tag :type="row.status === 1 ? 'success' : 'info'" effect="light">{{ row.status === 1 ? '正常' : '下架' }}</el-tag>
+          <el-tag :type="BOOK_STATUS_TAG_TYPE_MAP[Number(row.status)] || 'info'" effect="light">
+            {{ BOOK_STATUS_LABEL_MAP[Number(row.status)] || '未知' }}
+          </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="100" align="center" fixed="right">
@@ -399,4 +399,3 @@ function handleSizeChange(size) {
     </template>
   </el-dialog>
 </template>
-

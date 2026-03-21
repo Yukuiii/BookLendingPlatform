@@ -16,6 +16,7 @@ import com.example.backend.dto.AdminUserUpdateDTO;
 import com.example.backend.dto.ChangePasswordDTO;
 import com.example.backend.dto.UpdateUserProfileDTO;
 import com.example.backend.entity.User;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.UserService;
@@ -47,11 +48,6 @@ public class UserServiceImpl implements UserService {
 	 * 每页最大条数。
 	 */
 	private static final long MAX_SIZE = 50L;
-
-	/**
-	 * 正常状态。
-	 */
-	private static final int NORMAL_STATUS = 1;
 
 	/**
 	 * 支持的用户类型。
@@ -194,7 +190,8 @@ public class UserServiceImpl implements UserService {
 
 		ensureEmailAvailable(email, targetUserId);
 		ensurePhoneAvailable(phone, targetUserId);
-		if (Objects.equals(adminUser.getNameId(), targetUserId) && Objects.equals(requestDTO.getStatus(), 0)) {
+		if (Objects.equals(adminUser.getNameId(), targetUserId)
+			&& Objects.equals(requestDTO.getStatus(), UserStatusEnum.DISABLED.getCode())) {
 			throw new BusinessException("不能禁用当前登录管理员账号");
 		}
 
@@ -278,7 +275,7 @@ public class UserServiceImpl implements UserService {
 		if (requestDTO.getUserType() == null || !SUPPORTED_USER_TYPES.contains(requestDTO.getUserType())) {
 			throw new BusinessException("用户类型不合法");
 		}
-		if (requestDTO.getStatus() == null || !(requestDTO.getStatus() == 0 || requestDTO.getStatus() == 1)) {
+		if (UserStatusEnum.fromCode(requestDTO.getStatus()) == null) {
 			throw new BusinessException("用户状态不合法");
 		}
 		if (requestDTO.getMaxBorrowCount() == null || requestDTO.getMaxBorrowCount() <= 0) {
@@ -381,7 +378,7 @@ public class UserServiceImpl implements UserService {
 	 */
 	private User requireActiveUser(Long userId) {
 		User user = requireExistingUser(userId);
-		if (!Objects.equals(user.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用");
 		}
 		return user;

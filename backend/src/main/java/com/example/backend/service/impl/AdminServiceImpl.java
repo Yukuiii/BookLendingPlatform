@@ -28,6 +28,10 @@ import com.example.backend.entity.BookLocation;
 import com.example.backend.entity.BorrowRecord;
 import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
+import com.example.backend.enums.BookStatusEnum;
+import com.example.backend.enums.BorrowRecordStatusEnum;
+import com.example.backend.enums.CommentStatusEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
@@ -76,44 +80,14 @@ public class AdminServiceImpl implements AdminService {
 	private static final long MAX_SIZE = 50L;
 
 	/**
-	 * 正常状态。
+	 * 图书分类启用状态。
 	 */
-	private static final int NORMAL_STATUS = 1;
-
-	/**
-	 * 评论隐藏状态。
-	 */
-	private static final int COMMENT_HIDDEN_STATUS = 0;
-
-	/**
-	 * 评论显示状态。
-	 */
-	private static final int COMMENT_VISIBLE_STATUS = 1;
-
-	/**
-	 * 评论审核中状态。
-	 */
-	private static final int COMMENT_PENDING_STATUS = 2;
+	private static final int CATEGORY_ENABLED_STATUS = 1;
 
 	/**
 	 * 可用管理员角色。
 	 */
 	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
-
-	/**
-	 * 借阅中状态。
-	 */
-	private static final int BORROWING_STATUS = 1;
-
-	/**
-	 * 已归还状态。
-	 */
-	private static final int RETURNED_STATUS = 2;
-
-	/**
-	 * 超期状态。
-	 */
-	private static final int OVERDUE_STATUS = 3;
 
 	/**
 	 * 热门图书排行上限。
@@ -211,7 +185,7 @@ public class AdminServiceImpl implements AdminService {
 	public List<BookCategory> listAdminBookCategories(Long adminUserId) {
 		requireAdminUser(adminUserId);
 		return bookCategoryMapper.selectList(new LambdaQueryWrapper<BookCategory>()
-			.eq(BookCategory::getStatus, NORMAL_STATUS)
+			.eq(BookCategory::getStatus, CATEGORY_ENABLED_STATUS)
 			.orderByAsc(BookCategory::getSortOrder)
 			.orderByAsc(BookCategory::getCategoryId));
 	}
@@ -479,11 +453,21 @@ public class AdminServiceImpl implements AdminService {
 
 		Long totalBorrowCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
 			.ge(BorrowRecord::getBorrowDate, monthStart)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS));
+			.in(
+				BorrowRecord::getStatus,
+				BorrowRecordStatusEnum.BORROWING.getCode(),
+				BorrowRecordStatusEnum.RETURNED.getCode(),
+				BorrowRecordStatusEnum.OVERDUE.getCode()
+			));
 
 		List<BorrowRecord> monthRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
 			.ge(BorrowRecord::getBorrowDate, monthStart)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS)
+			.in(
+				BorrowRecord::getStatus,
+				BorrowRecordStatusEnum.BORROWING.getCode(),
+				BorrowRecordStatusEnum.RETURNED.getCode(),
+				BorrowRecordStatusEnum.OVERDUE.getCode()
+			)
 			.select(BorrowRecord::getUserId));
 		Long activeUserCount = monthRecords.stream()
 			.map(BorrowRecord::getUserId)
@@ -492,10 +476,10 @@ public class AdminServiceImpl implements AdminService {
 			.count();
 
 		Long overdueBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, OVERDUE_STATUS));
+			.eq(BorrowRecord::getStatus, BorrowRecordStatusEnum.OVERDUE.getCode()));
 
 		Long returnedBookCount = borrowRecordMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, RETURNED_STATUS)
+			.eq(BorrowRecord::getStatus, BorrowRecordStatusEnum.RETURNED.getCode())
 			.ge(BorrowRecord::getReturnDate, monthStart));
 
 		AdminStatisticsVO statisticsVO = new AdminStatisticsVO();
@@ -524,7 +508,12 @@ public class AdminServiceImpl implements AdminService {
 		List<BorrowRecord> borrowRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
 			.ge(BorrowRecord::getBorrowDate, yearStart)
 			.lt(BorrowRecord::getBorrowDate, yearEnd)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, RETURNED_STATUS, OVERDUE_STATUS)
+			.in(
+				BorrowRecord::getStatus,
+				BorrowRecordStatusEnum.BORROWING.getCode(),
+				BorrowRecordStatusEnum.RETURNED.getCode(),
+				BorrowRecordStatusEnum.OVERDUE.getCode()
+			)
 			.select(BorrowRecord::getBorrowDate));
 		for (BorrowRecord borrowRecord : borrowRecords) {
 			if (borrowRecord.getBorrowDate() == null) {
@@ -535,7 +524,7 @@ public class AdminServiceImpl implements AdminService {
 		}
 
 		List<BorrowRecord> returnedRecords = borrowRecordMapper.selectList(new LambdaQueryWrapper<BorrowRecord>()
-			.eq(BorrowRecord::getStatus, RETURNED_STATUS)
+			.eq(BorrowRecord::getStatus, BorrowRecordStatusEnum.RETURNED.getCode())
 			.ge(BorrowRecord::getReturnDate, yearStart)
 			.lt(BorrowRecord::getReturnDate, yearEnd)
 			.select(BorrowRecord::getReturnDate));
@@ -648,7 +637,7 @@ public class AdminServiceImpl implements AdminService {
 		if (adminUser == null) {
 			throw new BusinessException("管理员不存在");
 		}
-		if (!Objects.equals(adminUser.getStatus(), NORMAL_STATUS) || !ADMIN_USER_TYPES.contains(adminUser.getUserType())) {
+		if (!Objects.equals(adminUser.getStatus(), UserStatusEnum.NORMAL.getCode()) || !ADMIN_USER_TYPES.contains(adminUser.getUserType())) {
 			throw new BusinessException("当前用户无管理权限");
 		}
 		return adminUser;
@@ -681,7 +670,7 @@ public class AdminServiceImpl implements AdminService {
 		if (requestDTO.getDifficultyLevel() == null || requestDTO.getDifficultyLevel() < 1 || requestDTO.getDifficultyLevel() > 3) {
 			throw new BusinessException("难度等级不合法");
 		}
-		if (requestDTO.getStatus() == null || !(requestDTO.getStatus() == 0 || requestDTO.getStatus() == 1)) {
+		if (BookStatusEnum.fromCode(requestDTO.getStatus()) == null) {
 			throw new BusinessException("图书状态不合法");
 		}
 		if (requestDTO.getTotalCount() == null || requestDTO.getTotalCount() < 0) {
@@ -764,9 +753,7 @@ public class AdminServiceImpl implements AdminService {
 		if (requestDTO == null || requestDTO.getStatus() == null) {
 			throw new BusinessException("评论状态不能为空");
 		}
-		if (!Objects.equals(requestDTO.getStatus(), COMMENT_HIDDEN_STATUS)
-			&& !Objects.equals(requestDTO.getStatus(), COMMENT_VISIBLE_STATUS)
-			&& !Objects.equals(requestDTO.getStatus(), COMMENT_PENDING_STATUS)) {
+		if (CommentStatusEnum.fromCode(requestDTO.getStatus()) == null) {
 			throw new BusinessException("评论状态不合法");
 		}
 	}

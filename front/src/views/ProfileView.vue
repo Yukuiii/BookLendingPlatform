@@ -2,6 +2,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import { USER_STATUS, USER_STATUS_LABEL_MAP, USER_STATUS_TAG_TYPE_MAP } from '../constants/status'
 import { changeCurrentUserPassword, getCurrentUserProfile, updateCurrentUserProfile } from '../api/user'
 import { getCurrentUser, setCurrentUser } from '../utils/auth'
 
@@ -24,7 +25,7 @@ const profileForm = reactive({
   identityCard: '',
   userType: '',
   maxBorrowCount: 0,
-  status: 1,
+  status: USER_STATUS.NORMAL,
 })
 
 const passwordForm = reactive({
@@ -68,7 +69,7 @@ async function loadProfile() {
     profileForm.identityCard = profile.identityCard || ''
     profileForm.userType = resolveUserTypeLabel(profile.userType)
     profileForm.maxBorrowCount = profile.maxBorrowCount ?? 0
-    profileForm.status = profile.status ?? 1
+    profileForm.status = profile.status ?? USER_STATUS.NORMAL
   } catch (error) {
     ElMessage.error(error.message || '个人信息加载失败，请稍后重试')
   } finally {
@@ -205,7 +206,9 @@ function resolveUserTypeLabel(userType) {
           <el-input :model-value="String(profileForm.maxBorrowCount)" disabled />
         </el-form-item>
         <el-form-item label="账号状态">
-          <el-tag :type="profileForm.status === 1 ? 'success' : 'danger'">{{ profileForm.status === 1 ? '正常' : '禁用' }}</el-tag>
+          <el-tag :type="USER_STATUS_TAG_TYPE_MAP[Number(profileForm.status)] || 'danger'">
+            {{ USER_STATUS_LABEL_MAP[Number(profileForm.status)] || '未知' }}
+          </el-tag>
         </el-form-item>
         <el-form-item class="profile-form-actions">
           <el-button type="primary" :loading="profileSaving" @click="handleProfileSave">保存资料</el-button>
@@ -240,4 +243,3 @@ function resolveUserTypeLabel(userType) {
     </el-card>
   </div>
 </template>
-

@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import { pageMyComments } from '../api/comment'
+import { COMMENT_STATUS_LABEL_MAP, COMMENT_STATUS_TAG_TYPE_MAP } from '../constants/status'
 import { formatDateTime } from '../utils/book'
 
 /**
@@ -83,16 +84,7 @@ function buildCoverPlaceholder(record) {
  * @returns {string} 状态文案
  */
 function resolveCommentStatusLabel(status) {
-  if (status === 0) {
-    return '已隐藏'
-  }
-  if (status === 1) {
-    return '审核通过'
-  }
-  if (status === 2) {
-    return '审核中'
-  }
-  return '未知'
+  return COMMENT_STATUS_LABEL_MAP[Number(status)] || '未知'
 }
 
 /**
@@ -102,16 +94,7 @@ function resolveCommentStatusLabel(status) {
  * @returns {string} 标签类型
  */
 function resolveCommentStatusType(status) {
-  if (status === 0) {
-    return 'info'
-  }
-  if (status === 1) {
-    return 'success'
-  }
-  if (status === 2) {
-    return 'warning'
-  }
-  return 'info'
+  return COMMENT_STATUS_TAG_TYPE_MAP[Number(status)] || 'info'
 }
 </script>
 

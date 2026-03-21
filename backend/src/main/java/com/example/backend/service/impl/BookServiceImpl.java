@@ -23,6 +23,9 @@ import com.example.backend.entity.BookLocation;
 import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
 import com.example.backend.entity.UserPreference;
+import com.example.backend.enums.BookStatusEnum;
+import com.example.backend.enums.CommentStatusEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
@@ -58,21 +61,6 @@ public class BookServiceImpl implements BookService {
 	 * 最大推荐数量。
 	 */
 	private static final int MAX_RECOMMEND_LIMIT = 8;
-
-	/**
-	 * 图书上架状态。
-	 */
-	private static final int BOOK_ON_SHELF_STATUS = 1;
-
-	/**
-	 * 用户正常状态。
-	 */
-	private static final int NORMAL_USER_STATUS = 1;
-
-	/**
-	 * 评论审核通过状态。
-	 */
-	private static final int COMMENT_APPROVED_STATUS = 1;
 
 	/**
 	 * 默认每页条数。
@@ -234,7 +222,7 @@ public class BookServiceImpl implements BookService {
 
 		List<Comment> comments = commentMapper.selectList(new LambdaQueryWrapper<Comment>()
 			.in(Comment::getBookId, bookIds)
-			.eq(Comment::getStatus, COMMENT_APPROVED_STATUS));
+			.eq(Comment::getStatus, CommentStatusEnum.VISIBLE.getCode()));
 		if (comments == null || comments.isEmpty()) {
 			return Map.of();
 		}
@@ -323,7 +311,7 @@ public class BookServiceImpl implements BookService {
 			|| (preferScenes != null && !preferScenes.isEmpty());
 
 		List<Book> books = bookMapper.selectList(new LambdaQueryWrapper<Book>()
-			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.eq(Book::getStatus, BookStatusEnum.ON_SHELF.getCode())
 			.gt(Book::getAvailableCount, 0));
 		if (books == null || books.isEmpty()) {
 			return List.of();
@@ -413,7 +401,7 @@ public class BookServiceImpl implements BookService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用");
 		}
 		return user;

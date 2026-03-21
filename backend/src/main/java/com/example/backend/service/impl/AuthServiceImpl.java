@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.example.backend.dto.LoginRequestDTO;
 import com.example.backend.dto.RegisterRequestDTO;
 import com.example.backend.entity.User;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.UserMapper;
 import com.example.backend.service.AuthService;
@@ -24,11 +25,6 @@ import java.util.regex.Pattern;
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
-
-	/**
-	 * 正常状态。
-	 */
-	private static final int NORMAL_STATUS = 1;
 
 	/**
 	 * 注册时固定用户类型：普通用户。
@@ -87,7 +83,7 @@ public class AuthServiceImpl implements AuthService {
 		}
 
 		// 账号被禁用时直接阻止登录，避免无效账号继续访问系统。
-		if (!Objects.equals(user.getStatus(), NORMAL_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用，请联系管理员");
 		}
 
@@ -129,7 +125,7 @@ public class AuthServiceImpl implements AuthService {
 		user.setIdentityCard(identityCard);
 		user.setEmail(email);
 		user.setUserType(REGISTER_USER_TYPE);
-		user.setStatus(NORMAL_STATUS);
+		user.setStatus(UserStatusEnum.NORMAL.getCode());
 		user.setMaxBorrowCount(DEFAULT_MAX_BORROW_COUNT);
 
 		try {

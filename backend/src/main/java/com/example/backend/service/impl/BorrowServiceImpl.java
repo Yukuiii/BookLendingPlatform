@@ -24,6 +24,10 @@ import com.example.backend.entity.BookReservation;
 import com.example.backend.entity.BorrowRecord;
 import com.example.backend.entity.Comment;
 import com.example.backend.entity.User;
+import com.example.backend.enums.BookReservationStatusEnum;
+import com.example.backend.enums.BookStatusEnum;
+import com.example.backend.enums.BorrowRecordStatusEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.BookCategoryMapper;
 import com.example.backend.mapper.BookLocationMapper;
@@ -86,54 +90,9 @@ public class BorrowServiceImpl implements BorrowService {
 	private static final int DEFAULT_MAX_BORROW_COUNT = 5;
 
 	/**
-	 * 用户正常状态。
-	 */
-	private static final int NORMAL_USER_STATUS = 1;
-
-	/**
 	 * 管理员角色集合。
 	 */
 	private static final Set<Integer> ADMIN_USER_TYPES = Set.of(2, 3);
-
-	/**
-	 * 图书上架状态。
-	 */
-	private static final int BOOK_ON_SHELF_STATUS = 1;
-
-	/**
-	 * 借阅中状态。
-	 */
-	private static final int BORROWING_STATUS = 1;
-
-	/**
-	 * 已归还状态。
-	 */
-	private static final int RETURNED_STATUS = 2;
-
-	/**
-	 * 超期状态。
-	 */
-	private static final int OVERDUE_STATUS = 3;
-
-	/**
-	 * 审核中状态。
-	 */
-	private static final int PENDING_REVIEW_STATUS = 4;
-
-	/**
-	 * 预约排队中状态。
-	 */
-	private static final int RESERVATION_WAITING_STATUS = 1;
-
-	/**
-	 * 预约已完成状态。
-	 */
-	private static final int RESERVATION_FULFILLED_STATUS = 2;
-
-	/**
-	 * 预约已失效状态。
-	 */
-	private static final int RESERVATION_EXPIRED_STATUS = 3;
 
 	private final BorrowRecordMapper borrowRecordMapper;
 	private final BookMapper bookMapper;
@@ -173,7 +132,8 @@ public class BorrowServiceImpl implements BorrowService {
 		if (hasWaitingReservationBeforeDispatch) {
 			BorrowRecord autoAssignedBorrowRecord = findLatestActiveBorrowRecord(userId, bookId);
 			// 预约兑现后生成的记录会直接是借阅中/超期，不会回到审核中；这里直接返回，避免用户重复走普通借阅流程。
-			if (autoAssignedBorrowRecord != null && !Objects.equals(autoAssignedBorrowRecord.getStatus(), PENDING_REVIEW_STATUS)) {
+			if (autoAssignedBorrowRecord != null
+				&& !Objects.equals(autoAssignedBorrowRecord.getStatus(), BorrowRecordStatusEnum.PENDING_REVIEW.getCode())) {
 				return buildBorrowResultVO(autoAssignedBorrowRecord);
 			}
 		}
@@ -237,7 +197,7 @@ public class BorrowServiceImpl implements BorrowService {
 		reservation.setUserId(userId);
 		reservation.setBookId(bookId);
 		reservation.setQueueNo(queuePosition);
-		reservation.setStatus(RESERVATION_WAITING_STATUS);
+		reservation.setStatus(BookReservationStatusEnum.WAITING.getCode());
 		reservation.setBorrowId(null);
 		reservation.setCreateTime(now);
 		reservation.setUpdateTime(now);
@@ -270,7 +230,7 @@ public class BorrowServiceImpl implements BorrowService {
 		if (borrowRecord == null) {
 			throw new BusinessException("借阅记录不存在");
 		}
-		if (!Objects.equals(borrowRecord.getStatus(), PENDING_REVIEW_STATUS)) {
+		if (!Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.PENDING_REVIEW.getCode())) {
 			throw new BusinessException("当前借阅记录不在审核中");
 		}
 
@@ -286,7 +246,7 @@ public class BorrowServiceImpl implements BorrowService {
 		// 审核通过时再原子扣减库存，确保最终借阅成功的记录才占用馆藏。
 		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
 			.eq(Book::getBookId, borrowRecord.getBookId())
-			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.eq(Book::getStatus, BookStatusEnum.ON_SHELF.getCode())
 			.gt(Book::getAvailableCount, 0)
 			.setSql("available_count = available_count - 1")
 			.setSql("borrow_count = IFNULL(borrow_count, 0) + 1"));
@@ -297,7 +257,7 @@ public class BorrowServiceImpl implements BorrowService {
 		LocalDateTime now = LocalDateTime.now();
 		borrowRecord.setBorrowDate(now);
 		borrowRecord.setDueDate(now.plusDays(DEFAULT_BORROW_DAYS));
-		borrowRecord.setStatus(BORROWING_STATUS);
+		borrowRecord.setStatus(BorrowRecordStatusEnum.BORROWING.getCode());
 		borrowRecord.setOverdueDays(0);
 		borrowRecord.setFineAmount(BigDecimal.ZERO);
 		borrowRecord.setUpdateTime(now);
@@ -333,8 +293,8 @@ public class BorrowServiceImpl implements BorrowService {
 		if (!Objects.equals(borrowRecord.getUserId(), userId)) {
 			throw new BusinessException("无权续借该借阅记录");
 		}
-		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)) {
-			if (Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
+		if (!Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.BORROWING.getCode())) {
+			if (Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.OVERDUE.getCode())) {
 				throw new BusinessException("图书已超期，请先归还后再处理");
 			}
 			throw new BusinessException("当前借阅记录状态不支持续借");
@@ -469,7 +429,7 @@ public class BorrowServiceImpl implements BorrowService {
 		if (book == null) {
 			throw new BusinessException("图书不存在");
 		}
-		if (!Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS)) {
+		if (!Objects.equals(book.getStatus(), BookStatusEnum.ON_SHELF.getCode())) {
 			throw new BusinessException("图书已下架，暂不可借阅");
 		}
 		return book;
@@ -486,7 +446,7 @@ public class BorrowServiceImpl implements BorrowService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用，无法执行该操作");
 		}
 		return user;
@@ -537,7 +497,13 @@ public class BorrowServiceImpl implements BorrowService {
 			.eq(BorrowRecord::getUserId, userId)
 			.in(
 				BorrowRecord::getStatus,
-				includePending ? List.of(BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS) : List.of(BORROWING_STATUS, OVERDUE_STATUS)
+				includePending
+					? List.of(
+						BorrowRecordStatusEnum.BORROWING.getCode(),
+						BorrowRecordStatusEnum.OVERDUE.getCode(),
+						BorrowRecordStatusEnum.PENDING_REVIEW.getCode()
+					)
+					: List.of(BorrowRecordStatusEnum.BORROWING.getCode(), BorrowRecordStatusEnum.OVERDUE.getCode())
 			);
 		Long count = borrowRecordMapper.selectCount(queryWrapper);
 		return count == null ? 0L : count;
@@ -558,7 +524,13 @@ public class BorrowServiceImpl implements BorrowService {
 			.eq(BorrowRecord::getBookId, bookId)
 			.in(
 				BorrowRecord::getStatus,
-				includePending ? List.of(BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS) : List.of(BORROWING_STATUS, OVERDUE_STATUS)
+				includePending
+					? List.of(
+						BorrowRecordStatusEnum.BORROWING.getCode(),
+						BorrowRecordStatusEnum.OVERDUE.getCode(),
+						BorrowRecordStatusEnum.PENDING_REVIEW.getCode()
+					)
+					: List.of(BorrowRecordStatusEnum.BORROWING.getCode(), BorrowRecordStatusEnum.OVERDUE.getCode())
 			);
 		if (excludeBorrowId != null && excludeBorrowId > 0) {
 			queryWrapper.ne(BorrowRecord::getBorrowId, excludeBorrowId);
@@ -578,7 +550,7 @@ public class BorrowServiceImpl implements BorrowService {
 		Long count = bookReservationMapper.selectCount(new LambdaQueryWrapper<BookReservation>()
 			.eq(BookReservation::getUserId, userId)
 			.eq(BookReservation::getBookId, bookId)
-			.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS));
+			.eq(BookReservation::getStatus, BookReservationStatusEnum.WAITING.getCode()));
 		return count != null && count > 0;
 	}
 
@@ -593,7 +565,12 @@ public class BorrowServiceImpl implements BorrowService {
 		return borrowRecordMapper.selectOne(new LambdaQueryWrapper<BorrowRecord>()
 			.eq(BorrowRecord::getUserId, userId)
 			.eq(BorrowRecord::getBookId, bookId)
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS, PENDING_REVIEW_STATUS)
+			.in(
+				BorrowRecord::getStatus,
+				BorrowRecordStatusEnum.BORROWING.getCode(),
+				BorrowRecordStatusEnum.OVERDUE.getCode(),
+				BorrowRecordStatusEnum.PENDING_REVIEW.getCode()
+			)
 			.orderByDesc(BorrowRecord::getUpdateTime)
 			.orderByDesc(BorrowRecord::getBorrowId)
 			.last("limit 1"));
@@ -615,7 +592,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setDueDate(null);
 		borrowRecord.setReturnDate(null);
 		borrowRecord.setRenewCount(0);
-		borrowRecord.setStatus(PENDING_REVIEW_STATUS);
+		borrowRecord.setStatus(BorrowRecordStatusEnum.PENDING_REVIEW.getCode());
 		borrowRecord.setOverdueDays(0);
 		borrowRecord.setFineAmount(BigDecimal.ZERO);
 		borrowRecord.setCreateTime(now);
@@ -659,7 +636,7 @@ public class BorrowServiceImpl implements BorrowService {
 	private int resolveNextReservationQueueNo(Long bookId) {
 		BookReservation latestReservation = bookReservationMapper.selectOne(new LambdaQueryWrapper<BookReservation>()
 			.eq(BookReservation::getBookId, bookId)
-			.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS)
+			.eq(BookReservation::getStatus, BookReservationStatusEnum.WAITING.getCode())
 			.orderByDesc(BookReservation::getQueueNo)
 			.orderByDesc(BookReservation::getReservationId)
 			.last("limit 1"));
@@ -685,11 +662,11 @@ public class BorrowServiceImpl implements BorrowService {
 		if (!ignoreOwner && !Objects.equals(borrowRecord.getUserId(), operatorUserId)) {
 			throw new BusinessException("无权归还该借阅记录");
 		}
-		if (Objects.equals(borrowRecord.getStatus(), RETURNED_STATUS)) {
+		if (Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.RETURNED.getCode())) {
 			throw new BusinessException("该图书已归还，请勿重复操作");
 		}
-		if (!Objects.equals(borrowRecord.getStatus(), BORROWING_STATUS)
-			&& !Objects.equals(borrowRecord.getStatus(), OVERDUE_STATUS)) {
+		if (!Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.BORROWING.getCode())
+			&& !Objects.equals(borrowRecord.getStatus(), BorrowRecordStatusEnum.OVERDUE.getCode())) {
 			throw new BusinessException("当前借阅记录状态不支持归还");
 		}
 
@@ -709,7 +686,7 @@ public class BorrowServiceImpl implements BorrowService {
 
 		// 先把当前归还记录落库成已归还，再分配预约队列，这样后续额度校验和“是否已持有同一本书”的判断才是最新状态。
 		borrowRecord.setReturnDate(now);
-		borrowRecord.setStatus(RETURNED_STATUS);
+		borrowRecord.setStatus(BorrowRecordStatusEnum.RETURNED.getCode());
 		borrowRecord.setOverdueDays(overdueDays);
 		borrowRecord.setFineAmount(fineAmount);
 		borrowRecord.setUpdateTime(now);
@@ -739,13 +716,16 @@ public class BorrowServiceImpl implements BorrowService {
 		while (true) {
 			Book book = bookMapper.selectById(bookId);
 			// 图书不存在、已下架或已经没有可借库存时，当前这轮预约分配立即停止。
-			if (book == null || !Objects.equals(book.getStatus(), BOOK_ON_SHELF_STATUS) || book.getAvailableCount() == null || book.getAvailableCount() <= 0) {
+			if (book == null
+				|| !Objects.equals(book.getStatus(), BookStatusEnum.ON_SHELF.getCode())
+				|| book.getAvailableCount() == null
+				|| book.getAvailableCount() <= 0) {
 				return;
 			}
 
 			BookReservation reservation = bookReservationMapper.selectOne(new LambdaQueryWrapper<BookReservation>()
 				.eq(BookReservation::getBookId, bookId)
-				.eq(BookReservation::getStatus, RESERVATION_WAITING_STATUS)
+				.eq(BookReservation::getStatus, BookReservationStatusEnum.WAITING.getCode())
 				.orderByAsc(BookReservation::getQueueNo)
 				.orderByAsc(BookReservation::getReservationId)
 				.last("limit 1"));
@@ -777,7 +757,7 @@ public class BorrowServiceImpl implements BorrowService {
 
 		int updated = bookMapper.update(null, new LambdaUpdateWrapper<Book>()
 			.eq(Book::getBookId, book.getBookId())
-			.eq(Book::getStatus, BOOK_ON_SHELF_STATUS)
+			.eq(Book::getStatus, BookStatusEnum.ON_SHELF.getCode())
 			.gt(Book::getAvailableCount, 0)
 			.setSql("available_count = available_count - 1")
 			.setSql("borrow_count = IFNULL(borrow_count, 0) + 1"));
@@ -795,7 +775,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecord.setDueDate(now.plusDays(DEFAULT_BORROW_DAYS));
 		borrowRecord.setReturnDate(null);
 		borrowRecord.setRenewCount(0);
-		borrowRecord.setStatus(BORROWING_STATUS);
+		borrowRecord.setStatus(BorrowRecordStatusEnum.BORROWING.getCode());
 		borrowRecord.setOverdueDays(0);
 		borrowRecord.setFineAmount(BigDecimal.ZERO);
 		borrowRecord.setCreateTime(now);
@@ -803,7 +783,7 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecordMapper.insert(borrowRecord);
 
 		// 队首预约兑现后立即标记完成，并关联自动生成的借阅记录。
-		reservation.setStatus(RESERVATION_FULFILLED_STATUS);
+		reservation.setStatus(BookReservationStatusEnum.FULFILLED.getCode());
 		reservation.setBorrowId(borrowRecord.getBorrowId());
 		reservation.setUpdateTime(now);
 		bookReservationMapper.updateById(reservation);
@@ -827,7 +807,7 @@ public class BorrowServiceImpl implements BorrowService {
 	 */
 	private boolean canReservationUserReceiveBook(User user, Long bookId) {
 		// 用户不存在、主键缺失或账号已禁用时，不能再承接预约到书。
-		if (user == null || user.getNameId() == null || !Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+		if (user == null || user.getNameId() == null || !Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			return false;
 		}
 		// 预约兑现会直接生成借阅中记录，因此这里要按“包含审核中记录”的口径校验借阅额度。
@@ -847,7 +827,7 @@ public class BorrowServiceImpl implements BorrowService {
 		if (reservation == null || reservation.getReservationId() == null) {
 			return; 
 		}
-		reservation.setStatus(RESERVATION_EXPIRED_STATUS);
+		reservation.setStatus(BookReservationStatusEnum.EXPIRED.getCode());
 		reservation.setUpdateTime(LocalDateTime.now());
 		bookReservationMapper.updateById(reservation);
 	}
@@ -859,7 +839,7 @@ public class BorrowServiceImpl implements BorrowService {
 	 */
 	private void refreshExpiredBorrowRecords(Long userId) {
 		LambdaQueryWrapper<BorrowRecord> queryWrapper = new LambdaQueryWrapper<BorrowRecord>()
-			.in(BorrowRecord::getStatus, BORROWING_STATUS, OVERDUE_STATUS);
+			.in(BorrowRecord::getStatus, BorrowRecordStatusEnum.BORROWING.getCode(), BorrowRecordStatusEnum.OVERDUE.getCode());
 		if (userId != null && userId > 0) {
 			queryWrapper.eq(BorrowRecord::getUserId, userId);
 		}
@@ -916,8 +896,8 @@ public class BorrowServiceImpl implements BorrowService {
 		}
 
 		int overdueDays = calculateOverdueDays(borrowRecord.getDueDate(), currentTime);
-		int currentStatus = borrowRecord.getStatus() == null ? BORROWING_STATUS : borrowRecord.getStatus();
-		int targetStatus = overdueDays > 0 ? OVERDUE_STATUS : BORROWING_STATUS;
+		int currentStatus = borrowRecord.getStatus() == null ? BorrowRecordStatusEnum.BORROWING.getCode() : borrowRecord.getStatus();
+		int targetStatus = overdueDays > 0 ? BorrowRecordStatusEnum.OVERDUE.getCode() : BorrowRecordStatusEnum.BORROWING.getCode();
 		BigDecimal targetFineAmount = calculateFineAmount(overdueDays);
 		int currentOverdueDays = borrowRecord.getOverdueDays() == null ? 0 : borrowRecord.getOverdueDays();
 		BigDecimal currentFineAmount = normalizeFineAmount(borrowRecord.getFineAmount());
@@ -936,7 +916,8 @@ public class BorrowServiceImpl implements BorrowService {
 		borrowRecordMapper.updateById(borrowRecord);
 
 		// 仅在借阅记录首次进入超期状态时发送一次提醒，避免重复打扰用户。
-		if (!Objects.equals(currentStatus, OVERDUE_STATUS) && Objects.equals(targetStatus, OVERDUE_STATUS)) {
+		if (!Objects.equals(currentStatus, BorrowRecordStatusEnum.OVERDUE.getCode())
+			&& Objects.equals(targetStatus, BorrowRecordStatusEnum.OVERDUE.getCode())) {
 			sendBorrowOverdueNotification(borrowRecord, overdueDays, targetFineAmount);
 		}
 	}

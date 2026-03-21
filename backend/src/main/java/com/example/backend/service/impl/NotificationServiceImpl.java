@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.NotificationPageQueryDTO;
 import com.example.backend.entity.NotificationMessage;
 import com.example.backend.entity.User;
+import com.example.backend.enums.NotificationReadStatusEnum;
+import com.example.backend.enums.NotificationTypeEnum;
+import com.example.backend.enums.UserStatusEnum;
 import com.example.backend.exception.BusinessException;
 import com.example.backend.mapper.NotificationMessageMapper;
 import com.example.backend.mapper.UserMapper;
@@ -44,31 +47,6 @@ public class NotificationServiceImpl implements NotificationService {
 	private static final long MAX_SIZE = 50L;
 
 	/**
-	 * 用户正常状态。
-	 */
-	private static final int NORMAL_USER_STATUS = 1;
-
-	/**
-	 * 通知类型：超期提醒。
-	 */
-	private static final int OVERDUE_NOTIFICATION_TYPE = 1;
-
-	/**
-	 * 通知类型：预约借阅成功。
-	 */
-	private static final int RESERVATION_SUCCESS_NOTIFICATION_TYPE = 2;
-
-	/**
-	 * 通知未读状态。
-	 */
-	private static final int UNREAD_STATUS = 0;
-
-	/**
-	 * 通知已读状态。
-	 */
-	private static final int READ_STATUS = 1;
-
-	/**
 	 * 通知业务类型：借阅记录。
 	 */
 	private static final String BORROW_BUSINESS_TYPE = "BORROW_RECORD";
@@ -95,12 +73,12 @@ public class NotificationServiceImpl implements NotificationService {
 		LocalDateTime now = LocalDateTime.now();
 		NotificationMessage notification = new NotificationMessage();
 		notification.setUserId(userId);
-		notification.setNotificationType(OVERDUE_NOTIFICATION_TYPE);
+		notification.setNotificationType(NotificationTypeEnum.BORROW_OVERDUE.getCode());
 		notification.setTitle("图书超期提醒");
 		notification.setContent(buildBorrowOverdueContent(bookName, overdueDays, fineAmount));
 		notification.setBusinessType(BORROW_BUSINESS_TYPE);
 		notification.setBusinessId(borrowId);
-		notification.setReadStatus(UNREAD_STATUS);
+		notification.setReadStatus(NotificationReadStatusEnum.UNREAD.getCode());
 		notification.setReadTime(null);
 		notification.setCreateTime(now);
 		notification.setUpdateTime(now);
@@ -131,12 +109,12 @@ public class NotificationServiceImpl implements NotificationService {
 		LocalDateTime now = LocalDateTime.now();
 		NotificationMessage notification = new NotificationMessage();
 		notification.setUserId(userId);
-		notification.setNotificationType(RESERVATION_SUCCESS_NOTIFICATION_TYPE);
+		notification.setNotificationType(NotificationTypeEnum.RESERVATION_BORROW_SUCCESS.getCode());
 		notification.setTitle("预约借阅成功");
 		notification.setContent(buildReservationBorrowSuccessContent(bookName, dueDate));
 		notification.setBusinessType(BORROW_BUSINESS_TYPE);
 		notification.setBusinessId(borrowId);
-		notification.setReadStatus(UNREAD_STATUS);
+		notification.setReadStatus(NotificationReadStatusEnum.UNREAD.getCode());
 		notification.setReadTime(null);
 		notification.setCreateTime(now);
 		notification.setUpdateTime(now);
@@ -204,9 +182,9 @@ public class NotificationServiceImpl implements NotificationService {
 		if (!Objects.equals(notification.getUserId(), userId)) {
 			throw new BusinessException("无权操作该通知");
 		}
-		if (!Objects.equals(notification.getReadStatus(), READ_STATUS)) {
+		if (!Objects.equals(notification.getReadStatus(), NotificationReadStatusEnum.READ.getCode())) {
 			LocalDateTime now = LocalDateTime.now();
-			notification.setReadStatus(READ_STATUS);
+			notification.setReadStatus(NotificationReadStatusEnum.READ.getCode());
 			notification.setReadTime(now);
 			notification.setUpdateTime(now);
 			notificationMessageMapper.updateById(notification);
@@ -229,7 +207,7 @@ public class NotificationServiceImpl implements NotificationService {
 		if (user == null) {
 			throw new BusinessException("用户不存在");
 		}
-		if (!Objects.equals(user.getStatus(), NORMAL_USER_STATUS)) {
+		if (!Objects.equals(user.getStatus(), UserStatusEnum.NORMAL.getCode())) {
 			throw new BusinessException("当前账号已被禁用，无法查看通知");
 		}
 		return user;
