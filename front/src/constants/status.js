@@ -94,6 +94,30 @@ export const USER_STATUS_TAG_TYPE_MAP = Object.freeze({
   [USER_STATUS.DISABLED]: 'danger',
 })
 
+export const RESERVATION_STATUS = Object.freeze({
+  WAITING: 1,
+  FULFILLED: 2,
+  EXPIRED: 3,
+})
+
+export const RESERVATION_STATUS_OPTIONS = Object.freeze([
+  { label: '排队中', value: RESERVATION_STATUS.WAITING },
+  { label: '已完成', value: RESERVATION_STATUS.FULFILLED },
+  { label: '已失效', value: RESERVATION_STATUS.EXPIRED },
+])
+
+export const RESERVATION_STATUS_LABEL_MAP = Object.freeze({
+  [RESERVATION_STATUS.WAITING]: '排队中',
+  [RESERVATION_STATUS.FULFILLED]: '已完成',
+  [RESERVATION_STATUS.EXPIRED]: '已失效',
+})
+
+export const RESERVATION_STATUS_TAG_TYPE_MAP = Object.freeze({
+  [RESERVATION_STATUS.WAITING]: 'warning',
+  [RESERVATION_STATUS.FULFILLED]: 'success',
+  [RESERVATION_STATUS.EXPIRED]: 'info',
+})
+
 export const NOTIFICATION_READ_STATUS = Object.freeze({
   UNREAD: 0,
   READ: 1,

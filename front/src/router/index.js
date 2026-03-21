@@ -11,6 +11,7 @@ import FavoriteView from '../views/FavoriteView.vue'
 import NotificationView from '../views/NotificationView.vue'
 import PreferenceView from '../views/PreferenceView.vue'
 import ProfileView from '../views/ProfileView.vue'
+import ReservationView from '../views/ReservationView.vue'
 import AdminBookLocationView from '../views/admin/AdminBookLocationView.vue'
 import AdminBookManageView from '../views/admin/AdminBookManageView.vue'
 import AdminBorrowManageView from '../views/admin/AdminBorrowManageView.vue'
@@ -73,6 +74,14 @@ const routes = [
         component: BorrowView,
         meta: {
           title: '我的借阅',
+        },
+      },
+      {
+        path: 'reservations',
+        name: 'reservations',
+        component: ReservationView,
+        meta: {
+          title: '我的预约',
         },
       },
       {

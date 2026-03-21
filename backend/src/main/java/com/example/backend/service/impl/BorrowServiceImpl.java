@@ -17,6 +17,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.example.backend.dto.BorrowBookRequestDTO;
 import com.example.backend.dto.BorrowRecordPageQueryDTO;
+import com.example.backend.dto.ReservationPageQueryDTO;
 import com.example.backend.entity.Book;
 import com.example.backend.entity.BookCategory;
 import com.example.backend.entity.BookLocation;
@@ -43,6 +44,7 @@ import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.RenewBookVO;
+import com.example.backend.vo.ReservationPageVO;
 import com.example.backend.vo.ReturnBookVO;
 
 import lombok.RequiredArgsConstructor;
@@ -416,6 +418,75 @@ public class BorrowServiceImpl implements BorrowService {
 			resultPage.getSize(),
 			resultPage.getPages()
 		);
+	}
+
+	/**
+	 * 分页查询我的预约记录。
+	 */
+	@Override
+	public PageResult<ReservationPageVO> pageMyReservations(Long userId, ReservationPageQueryDTO queryDTO) {
+		if (userId == null || userId <= 0) {
+			throw new BusinessException("请先登录后查看预约记录");
+		}
+
+		long current = normalizeReservationCurrent(queryDTO);
+		long size = normalizeReservationSize(queryDTO);
+		Page<BookReservation> page = new Page<>(current, size);
+		LambdaQueryWrapper<BookReservation> queryWrapper = new LambdaQueryWrapper<BookReservation>()
+			.eq(BookReservation::getUserId, userId);
+		if (queryDTO != null && queryDTO.getStatus() != null) {
+			queryWrapper.eq(BookReservation::getStatus, queryDTO.getStatus());
+		}
+
+		queryWrapper.orderByDesc(BookReservation::getCreateTime)
+			.orderByDesc(BookReservation::getReservationId);
+
+		Page<BookReservation> resultPage = bookReservationMapper.selectPage(page, queryWrapper);
+		List<BookReservation> reservations = resultPage.getRecords() == null ? List.of() : resultPage.getRecords();
+
+		// 批量查询关联的图书信息
+		Map<Long, Book> bookMap = resolveReservationBookMap(reservations);
+		Map<Long, String> categoryNameMap = resolveCategoryNameMap(bookMap);
+		List<ReservationPageVO> pageRecords = reservations.stream()
+			.map((reservation) -> buildReservationPageVO(reservation, bookMap, categoryNameMap))
+			.toList();
+
+		return new PageResult<>(
+			pageRecords,
+			resultPage.getTotal(),
+			resultPage.getCurrent(),
+			resultPage.getSize(),
+			resultPage.getPages()
+		);
+	}
+
+	/**
+	 * 取消预约（仅允许取消排队中的预约）。
+	 */
+	@Override
+	@Transactional(rollbackFor = Exception.class)
+	public void cancelReservation(Long userId, Long reservationId) {
+		if (userId == null || userId <= 0) {
+			throw new BusinessException("请先登录后操作");
+		}
+		if (reservationId == null || reservationId <= 0) {
+			throw new BusinessException("预约记录ID无效");
+		}
+
+		BookReservation reservation = bookReservationMapper.selectById(reservationId);
+		if (reservation == null) {
+			throw new BusinessException("预约记录不存在");
+		}
+		if (!Objects.equals(reservation.getUserId(), userId)) {
+			throw new BusinessException("无权操作该预约记录");
+		}
+		if (!Objects.equals(reservation.getStatus(), BookReservationStatusEnum.WAITING.getCode())) {
+			throw new BusinessException("仅排队中的预约可以取消");
+		}
+
+		reservation.setStatus(BookReservationStatusEnum.EXPIRED.getCode());
+		reservation.setUpdateTime(LocalDateTime.now());
+		bookReservationMapper.updateById(reservation);
 	}
 
 	/**
@@ -1186,5 +1257,93 @@ public class BorrowServiceImpl implements BorrowService {
 			return MAX_SIZE;
 		}
 		return queryDTO.getSize();
+	}
+
+	/**
+	 * 规范化预约查询页码。
+	 *
+	 * @param queryDTO 查询参数
+	 * @return 页码
+	 */
+	private long normalizeReservationCurrent(ReservationPageQueryDTO queryDTO) {
+		if (queryDTO == null || queryDTO.getCurrent() == null || queryDTO.getCurrent() <= 0) {
+			return DEFAULT_CURRENT;
+		}
+		return queryDTO.getCurrent();
+	}
+
+	/**
+	 * 规范化预约查询每页条数。
+	 *
+	 * @param queryDTO 查询参数
+	 * @return 每页条数
+	 */
+	private long normalizeReservationSize(ReservationPageQueryDTO queryDTO) {
+		if (queryDTO == null || queryDTO.getSize() == null || queryDTO.getSize() <= 0) {
+			return DEFAULT_SIZE;
+		}
+		if (queryDTO.getSize() > MAX_SIZE) {
+			return MAX_SIZE;
+		}
+		return queryDTO.getSize();
+	}
+
+	/**
+	 * 批量查询预约记录关联的图书信息。
+	 *
+	 * @param reservations 预约记录列表
+	 * @return 图书ID到图书实体的映射
+	 */
+	private Map<Long, Book> resolveReservationBookMap(List<BookReservation> reservations) {
+		if (reservations == null || reservations.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Long> bookIds = reservations.stream()
+			.map(BookReservation::getBookId)
+			.filter(Objects::nonNull)
+			.distinct()
+			.toList();
+		if (bookIds.isEmpty()) {
+			return Map.of();
+		}
+
+		List<Book> books = bookMapper.selectByIds(bookIds);
+		if (books == null || books.isEmpty()) {
+			return Map.of();
+		}
+		return books.stream().collect(Collectors.toMap(Book::getBookId, (b) -> b, (a, b) -> a));
+	}
+
+	/**
+	 * 构建单条预约记录的分页返回对象。
+	 *
+	 * @param reservation 预约记录
+	 * @param bookMap 图书映射
+	 * @param categoryNameMap 分类名称映射
+	 * @return 预约分页VO
+	 */
+	private ReservationPageVO buildReservationPageVO(BookReservation reservation, Map<Long, Book> bookMap, Map<Long, String> categoryNameMap) {
+		Book book = bookMap.getOrDefault(reservation.getBookId(), null);
+		ReservationPageVO vo = new ReservationPageVO();
+		vo.setReservationId(reservation.getReservationId());
+		vo.setBookId(reservation.getBookId());
+		vo.setQueuePosition(reservation.getQueueNo());
+		vo.setStatus(reservation.getStatus());
+		vo.setBorrowId(reservation.getBorrowId());
+		vo.setCreateTime(reservation.getCreateTime());
+		vo.setUpdateTime(reservation.getUpdateTime());
+
+		if (book != null) {
+			vo.setIsbn(book.getIsbn());
+			vo.setBookName(book.getBookName());
+			vo.setAuthor(book.getAuthor());
+			vo.setPublisher(book.getPublisher());
+			vo.setPublishDate(book.getPublishDate());
+			vo.setCoverUrl(book.getCoverUrl());
+			vo.setCategoryName(categoryNameMap.getOrDefault(book.getCategoryId(), null));
+		}
+
+		return vo;
 	}
 }

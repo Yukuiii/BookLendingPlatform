@@ -2,14 +2,17 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.BorrowBookRequestDTO;
 import com.example.backend.dto.BorrowRecordPageQueryDTO;
+import com.example.backend.dto.ReservationPageQueryDTO;
 import com.example.backend.service.BorrowService;
 import com.example.backend.vo.BookReservationVO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.RenewBookVO;
+import com.example.backend.vo.ReservationPageVO;
 import com.example.backend.vo.ReturnBookVO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -102,5 +105,34 @@ public class BorrowRecordController {
 		@ModelAttribute BorrowRecordPageQueryDTO queryDTO
 	) {
 		return borrowService.pageMyBorrowRecords(userId, queryDTO);
+	}
+
+	/**
+	 * 分页查询我的预约记录。
+	 *
+	 * @param userId 当前用户ID
+	 * @param queryDTO 查询参数
+	 * @return 预约记录分页结果
+	 */
+	@GetMapping("/reservations/my/page")
+	public PageResult<ReservationPageVO> pageMyReservations(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@ModelAttribute ReservationPageQueryDTO queryDTO
+	) {
+		return borrowService.pageMyReservations(userId, queryDTO);
+	}
+
+	/**
+	 * 取消预约。
+	 *
+	 * @param userId 当前用户ID
+	 * @param reservationId 预约记录ID
+	 */
+	@DeleteMapping("/reservations/{reservationId}")
+	public void cancelReservation(
+		@RequestHeader(value = "X-User-Id", required = false) Long userId,
+		@PathVariable Long reservationId
+	) {
+		borrowService.cancelReservation(userId, reservationId);
 	}
 }

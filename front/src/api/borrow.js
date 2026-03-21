@@ -77,3 +77,39 @@ export function pageMyBorrowRecords(params = {}) {
     method: 'GET',
   })
 }
+
+/**
+ * 分页查询我的预约记录。
+ *
+ * @param {{current?: number, size?: number, status?: number | null}} params 查询参数
+ * @returns {Promise<any>} 预约记录分页结果
+ */
+export function pageMyReservations(params = {}) {
+  const searchParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+    searchParams.append(key, String(value))
+  })
+
+  const queryString = searchParams.toString()
+  const requestPath = queryString ? `/borrow-records/reservations/my/page?${queryString}` : '/borrow-records/reservations/my/page'
+
+  return request(requestPath, {
+    method: 'GET',
+  })
+}
+
+/**
+ * 取消预约。
+ *
+ * @param {number|string} reservationId 预约记录ID
+ * @returns {Promise<any>} 取消结果
+ */
+export function cancelReservation(reservationId) {
+  return request(`/borrow-records/reservations/${encodeURIComponent(reservationId)}`, {
+    method: 'DELETE',
+  })
+}

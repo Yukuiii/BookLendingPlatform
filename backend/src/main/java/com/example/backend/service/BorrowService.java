@@ -1,12 +1,14 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.BorrowBookRequestDTO;
-import com.example.backend.vo.BookReservationVO;
 import com.example.backend.dto.BorrowRecordPageQueryDTO;
+import com.example.backend.dto.ReservationPageQueryDTO;
+import com.example.backend.vo.BookReservationVO;
 import com.example.backend.vo.BorrowRecordPageVO;
 import com.example.backend.vo.BorrowResultVO;
 import com.example.backend.vo.PageResult;
 import com.example.backend.vo.RenewBookVO;
+import com.example.backend.vo.ReservationPageVO;
 import com.example.backend.vo.ReturnBookVO;
 
 /**
@@ -81,4 +83,21 @@ public interface BorrowService {
 	 * @return 借阅记录分页结果
 	 */
 	PageResult<BorrowRecordPageVO> pageMyBorrowRecords(Long userId, BorrowRecordPageQueryDTO queryDTO);
+
+	/**
+	 * 分页查询我的预约记录。
+	 *
+	 * @param userId 用户ID
+	 * @param queryDTO 查询参数
+	 * @return 预约记录分页结果
+	 */
+	PageResult<ReservationPageVO> pageMyReservations(Long userId, ReservationPageQueryDTO queryDTO);
+
+	/**
+	 * 取消预约。
+	 *
+	 * @param userId 用户ID
+	 * @param reservationId 预约记录ID
+	 */
+	void cancelReservation(Long userId, Long reservationId);
 }
