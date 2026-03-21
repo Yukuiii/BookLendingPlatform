@@ -69,6 +69,18 @@ INSERT INTO `user` (
     3,
     10,
     1
+  ),
+  (
+    'zhangsan1',
+    '8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92',
+    '张三一',
+    'zhangsan1@library.local',
+    '13800000004',
+    '110101199001010044',
+    '计算机科学',
+    1,
+    5,
+    1
   );
 
 CREATE TABLE IF NOT EXISTS `book` (
